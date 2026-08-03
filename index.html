@@ -151,7 +151,7 @@ async function sendMagicLink(){
   var btn=document.getElementById('auth-submit');
   if(!email){msg.textContent='Please enter your email.';return;}
   btn.disabled=true;btn.textContent='Sending…';msg.textContent='';
-  var res=await sbClient.auth.signInWithOtp({email:email,options:{emailRedirectTo:window.location.origin+window.location.pathname}});
+  var res=await sbClient.auth.signInWithOtp({email:email,options:{emailRedirectTo:window.location.origin}});
   btn.disabled=false;btn.textContent='Send magic link';
   if(res.error){msg.textContent=res.error.message||'Failed to send link. Try again.';}
   else{
