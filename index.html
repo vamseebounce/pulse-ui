@@ -51,6 +51,12 @@
   .status-error, .status-exception{color:var(--bad);}
   .empty-row td{color:var(--muted);text-align:center;padding:20px;}
   .note{color:var(--muted);font-size:12px;padding:10px 18px;border-top:1px solid var(--border);}
+
+  .week-picker-bar{display:flex;align-items:center;gap:10px;margin:-6px 0 20px;padding:10px 14px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;}
+  .week-picker-bar label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
+  .week-picker-bar select{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer;}
+  .week-picker-bar select:focus{outline:none;border-color:var(--accent);}
+  tr.week-row-selected{background:rgba(91,157,255,.12);}
 </style>
 </head>
 <body>
@@ -97,15 +103,21 @@
     </section>
 
     <section class="card">
-      <div class="card-head"><h3>Weekly trend</h3><span class="sub">Monday–Sunday, last 8 complete weeks</span></div>
+      <div class="card-head"><h3>Weekly trend</h3><span class="sub">Monday–Sunday · every complete/in-progress week on record</span></div>
       <table>
         <thead><tr><th>Week</th><th>Riders engaged</th><th>Riders w/ orders</th><th>% zero orders</th><th>Median orders</th><th>Orders/login-hr</th><th>Total orders</th><th>Avg drop km</th></tr></thead>
         <tbody id="tbl-weekly"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
       </table>
     </section>
 
+    <div class="week-picker-bar">
+      <label for="week-picker">Week starting</label>
+      <select id="week-picker" onchange="onWeekChange()"><option>Loading…</option></select>
+      <span id="week-picker-note" class="sub"></span>
+    </div>
+
     <section class="card">
-      <div class="card-head"><h3>New vs. old riders</h3><span class="sub">Rolling 14 days · tenure ≤7d vs &gt;7d since first session</span></div>
+      <div class="card-head"><h3>New vs. old riders</h3><span class="sub" id="sub-tenure">tenure ≤7d vs &gt;7d since first session</span></div>
       <table>
         <thead><tr><th>Segment</th><th>Riders</th><th>% zero orders</th><th>Median orders</th><th>Mean orders</th><th>Mean pings</th><th>Mean login hrs</th></tr></thead>
         <tbody id="tbl-tenure"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
@@ -113,7 +125,7 @@
     </section>
 
     <section class="card">
-      <div class="card-head"><h3>Login-hour split</h3><span class="sub">Rolling 14 days · rider-days bucketed by daily login duration</span></div>
+      <div class="card-head"><h3>Login-hour split</h3><span class="sub">Rider-days that week, bucketed by daily login duration</span></div>
       <table>
         <thead><tr><th>Login hours</th><th>Rider-days</th><th>% zero orders</th><th>Median orders</th><th>Mean orders</th><th>Orders/login-hr</th></tr></thead>
         <tbody id="tbl-login"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
@@ -122,7 +134,7 @@
     </section>
 
     <section class="card">
-      <div class="card-head"><h3>Orders/hr by drop distance</h3><span class="sub">Rolling 14 days · rider-days with ≥1 order, bucketed by avg drop distance</span></div>
+      <div class="card-head"><h3>Orders/hr by drop distance</h3><span class="sub">Rider-days that week with ≥1 order, bucketed by avg drop distance</span></div>
       <table>
         <thead><tr><th>Drop distance</th><th>Rider-days</th><th>Avg login hrs</th><th>Avg orders</th><th>Orders/login-hr</th></tr></thead>
         <tbody id="tbl-distance"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
@@ -179,40 +191,85 @@ async function loadSyncStatus(){
   }).join('');
 }
 
+var weeklyRows=[];
+var selectedWeek=null;
+
 async function loadWeekly(){
   var {data,error}=await sbTasks.from('v_weekly_summary').select('*').order('week_start_mon',{ascending:false});
   var tbody=document.getElementById('tbl-weekly');
-  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">'+(error?esc(error.message):'No data')+'</td></tr>';weeklyRows=[];return;}
+  weeklyRows=data;
   tbody.innerHTML=data.map(function(r){
-    return '<tr><td>'+fmtDateOnly(r.week_start_mon)+' – '+fmtDateOnly(r.week_end_sun)+'</td><td>'+nz(r.riders_engaged)+'</td><td>'+nz(r.riders_with_orders)+'</td><td>'+nz(r.pct_zero_orders_among_engaged)+'%</td><td>'+nz(r.median_orders_among_engaged)+'</td><td>'+nz(r.orders_per_login_hour)+'</td><td>'+nz(r.total_orders)+'</td><td>'+nz(r.avg_drop_distance_km)+'</td></tr>';
+    return '<tr data-week="'+r.week_start_mon+'"><td>'+fmtDateOnly(r.week_start_mon)+' – '+fmtDateOnly(r.week_end_sun)+'</td><td>'+nz(r.riders_engaged)+'</td><td>'+nz(r.riders_with_orders)+'</td><td>'+nz(r.pct_zero_orders_among_engaged)+'%</td><td>'+nz(r.median_orders_among_engaged)+'</td><td>'+nz(r.orders_per_login_hour)+'</td><td>'+nz(r.total_orders)+'</td><td>'+nz(r.avg_drop_distance_km)+'</td></tr>';
   }).join('');
+  populateWeekPicker();
 }
 
-async function loadTenure(){
-  var {data,error}=await sbTasks.from('v_new_vs_old_summary').select('*').order('tenure_bucket');
+function todayIsoUTC(){return new Date().toISOString().slice(0,10);}
+
+function populateWeekPicker(){
+  var sel=document.getElementById('week-picker');
+  if(!weeklyRows.length){sel.innerHTML='<option>No weeks available</option>';return;}
+  var today=todayIsoUTC();
+  // default = most recent COMPLETE week (week_end_sun before today); fall back to the latest available.
+  var defaultRow=weeklyRows.find(function(r){return r.week_end_sun<today;})||weeklyRows[0];
+  sel.innerHTML=weeklyRows.map(function(r){
+    var inProgress=r.week_end_sun>=today;
+    var label=fmtDateOnly(r.week_start_mon)+' – '+fmtDateOnly(r.week_end_sun)+(inProgress?' (in progress)':'');
+    return '<option value="'+r.week_start_mon+'">'+esc(label)+'</option>';
+  }).join('');
+  sel.value=defaultRow.week_start_mon;
+  selectedWeek=defaultRow.week_start_mon;
+  refreshWeekScopedPanels();
+}
+
+function highlightWeekRow(weekStartMon){
+  document.querySelectorAll('#tbl-weekly tr').forEach(function(tr){
+    tr.classList.toggle('week-row-selected',tr.getAttribute('data-week')===weekStartMon);
+  });
+  var row=weeklyRows.find(function(r){return r.week_start_mon===weekStartMon;});
+  var note=document.getElementById('week-picker-note');
+  if(row)note.textContent=nz(row.riders_engaged)+' riders engaged · '+nz(row.total_orders)+' orders that week';
+  var subTenure=document.getElementById('sub-tenure');
+  if(row&&subTenure)subTenure.textContent='Week of '+fmtDateOnly(row.week_start_mon)+' · tenure ≤7d vs >7d as of that week';
+}
+
+function onWeekChange(){
+  selectedWeek=document.getElementById('week-picker').value;
+  refreshWeekScopedPanels();
+}
+
+function refreshWeekScopedPanels(){
+  if(!selectedWeek)return;
+  highlightWeekRow(selectedWeek);
+  loadTenure(selectedWeek);loadLoginBuckets(selectedWeek);loadDistanceBuckets(selectedWeek);
+}
+
+async function loadTenure(weekStartMon){
+  var {data,error}=await sbTasks.from('v_new_vs_old_summary').select('*').eq('week_start_mon',weekStartMon).order('tenure_bucket');
   var tbody=document.getElementById('tbl-tenure');
-  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">'+(error?esc(error.message):'No data for this week')+'</td></tr>';return;}
   tbody.innerHTML=data.map(function(r){
     return '<tr><td>'+esc(r.tenure_bucket)+'</td><td>'+nz(r.riders)+'</td><td>'+nz(r.pct_zero_orders)+'%</td><td>'+nz(r.median_orders)+'</td><td>'+nz(r.mean_orders)+'</td><td>'+nz(r.mean_pings)+'</td><td>'+nz(r.mean_login_hours)+'</td></tr>';
   }).join('');
 }
 
-async function loadLoginBuckets(){
+async function loadLoginBuckets(weekStartMon){
   var order=['0 (not logged in)','0-2h','2-4h','4-6h','6h+'];
-  var {data,error}=await sbTasks.from('v_login_bucket_summary').select('*');
+  var {data,error}=await sbTasks.from('v_login_bucket_summary').select('*').eq('week_start_mon',weekStartMon);
   var tbody=document.getElementById('tbl-login');
-  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="6">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="6">'+(error?esc(error.message):'No data for this week')+'</td></tr>';return;}
   data.sort(function(a,b){return order.indexOf(a.login_bucket)-order.indexOf(b.login_bucket);});
   tbody.innerHTML=data.map(function(r){
     return '<tr><td>'+esc(r.login_bucket)+'</td><td>'+nz(r.rider_days)+'</td><td>'+nz(r.pct_zero_orders)+'%</td><td>'+nz(r.median_orders)+'</td><td>'+nz(r.mean_orders)+'</td><td>'+nz(r.orders_per_login_hour)+'</td></tr>';
   }).join('');
 }
 
-async function loadDistanceBuckets(){
+async function loadDistanceBuckets(weekStartMon){
   var order=['<2km','2-3km','3-4km','4-5km','5km+','no order that day'];
-  var {data,error}=await sbTasks.from('v_distance_bucket_summary').select('*');
+  var {data,error}=await sbTasks.from('v_distance_bucket_summary').select('*').eq('week_start_mon',weekStartMon);
   var tbody=document.getElementById('tbl-distance');
-  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="5">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="5">'+(error?esc(error.message):'No data for this week')+'</td></tr>';return;}
   data.sort(function(a,b){return order.indexOf(a.drop_dist_bucket)-order.indexOf(b.drop_dist_bucket);});
   tbody.innerHTML=data.map(function(r){
     return '<tr><td>'+esc(r.drop_dist_bucket)+'</td><td>'+nz(r.rider_days)+'</td><td>'+nz(r.avg_login_hours)+'</td><td>'+nz(r.avg_orders)+'</td><td>'+nz(r.orders_per_login_hour)+'</td></tr>';
@@ -220,7 +277,8 @@ async function loadDistanceBuckets(){
 }
 
 async function loadAllDashboardData(){
-  loadSyncStatus();loadWeekly();loadTenure();loadLoginBuckets();loadDistanceBuckets();
+  loadSyncStatus();
+  await loadWeekly(); // populates the week picker + triggers the week-scoped panels
 }
 
 async function onSignedIn(session){
