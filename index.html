@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pulse — Bounce Tasks</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --border:#2a2f3a;
+    --text:#e6e8ec; --muted:#9aa1ac; --accent:#5b9dff; --good:#3ecf8e; --warn:#f5a623; --bad:#f0554b;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);}
+  header .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;}
+  header .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);}
+  header .meta{color:var(--muted);font-size:13px;}
+  #logout-btn{display:none;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;}
+  #logout-btn:hover{border-color:var(--accent);}
+  main{max-width:1100px;margin:0 auto;padding:24px;}
+  .hidden{display:none !important;}
+
+  /* Auth screen */
+  #auth-screen{display:flex;align-items:center;justify-content:center;min-height:70vh;}
+  .auth-box{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:32px;width:360px;text-align:center;}
+  .auth-box h2{margin:0 0 6px;font-size:20px;}
+  .auth-box p{color:var(--muted);font-size:13px;margin:0 0 20px;}
+  .auth-box input{width:100%;padding:10px 12px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);font-size:14px;margin-bottom:12px;}
+  .auth-box button{width:100%;padding:10px;border-radius:6px;border:none;background:var(--accent);color:#0b0d11;font-weight:600;font-size:14px;cursor:pointer;}
+  .auth-box button:disabled{opacity:.6;cursor:default;}
+  #auth-msg{color:var(--bad);font-size:12px;margin-top:10px;min-height:14px;}
+  #auth-sent{display:none;}
+
+  /* Access pending */
+  #pending-screen{display:none;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;text-align:center;}
+  #pending-screen .box{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:420px;}
+
+  /* Dashboard */
+  #dash{display:none;}
+  section.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;margin-bottom:20px;overflow:hidden;}
+  section.card .card-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+  section.card .card-head h3{margin:0;font-size:15px;}
+  section.card .card-head .sub{color:var(--muted);font-size:12px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{padding:9px 14px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
+  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+  th:first-child,td:first-child{text-align:left;}
+  tbody tr:hover{background:var(--panel2);}
+  .status-ok{color:var(--good);}
+  .status-error, .status-exception{color:var(--bad);}
+  .empty-row td{color:var(--muted);text-align:center;padding:20px;}
+  .note{color:var(--muted);font-size:12px;padding:10px 18px;border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="dot"></span> Pulse <span class="meta">&nbsp;· Bounce Tasks ops console</span></div>
+  <button id="logout-btn" onclick="signOut()">Sign out</button>
+</header>
+
+<main>
+
+  <div id="auth-screen">
+    <div class="auth-box">
+      <h2>Sign in to Pulse</h2>
+      <p>Enter your email — we'll send a magic link, no password needed.</p>
+      <div id="auth-form">
+        <input type="email" id="auth-email" placeholder="you@bounceshare.com" autocomplete="email">
+        <button id="auth-submit" onclick="sendMagicLink()">Send magic link</button>
+      </div>
+      <div id="auth-sent">
+        <p style="color:var(--good)">Link sent to <strong id="auth-sent-email"></strong>. Check your inbox.</p>
+      </div>
+      <div id="auth-msg"></div>
+    </div>
+  </div>
+
+  <div id="pending-screen">
+    <div class="box">
+      <h2>Access pending</h2>
+      <p style="color:var(--muted)">You're signed in, but your account isn't on the Pulse allowlist yet.
+      Ask <strong>vamsee@scalability.club</strong> to add you in <code>tasks.members</code>.</p>
+      <button id="pending-signout" onclick="signOut()" style="margin-top:14px;padding:8px 16px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;">Sign out</button>
+    </div>
+  </div>
+
+  <div id="dash">
+
+    <section class="card">
+      <div class="card-head"><h3>Sync status</h3><span class="sub">Metabase → Supabase pipeline</span></div>
+      <table>
+        <thead><tr><th>Source</th><th>Last sync (IST)</th><th>Last batch</th><th>Sync ID</th><th>Status</th></tr></thead>
+        <tbody id="tbl-sync"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>Weekly trend</h3><span class="sub">Monday–Sunday, last 8 complete weeks</span></div>
+      <table>
+        <thead><tr><th>Week</th><th>Riders engaged</th><th>Riders w/ orders</th><th>% zero orders</th><th>Median orders</th><th>Orders/login-hr</th><th>Total orders</th><th>Avg drop km</th></tr></thead>
+        <tbody id="tbl-weekly"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>New vs. old riders</h3><span class="sub">Rolling 14 days · tenure ≤7d vs &gt;7d since first session</span></div>
+      <table>
+        <thead><tr><th>Segment</th><th>Riders</th><th>% zero orders</th><th>Median orders</th><th>Mean orders</th><th>Mean pings</th><th>Mean login hrs</th></tr></thead>
+        <tbody id="tbl-tenure"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>Login-hour split</h3><span class="sub">Rolling 14 days · rider-days bucketed by daily login duration</span></div>
+      <table>
+        <thead><tr><th>Login hours</th><th>Rider-days</th><th>% zero orders</th><th>Median orders</th><th>Mean orders</th><th>Orders/login-hr</th></tr></thead>
+        <tbody id="tbl-login"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+      </table>
+      <div class="note">Orders/login-hr flat across buckets = day-level averages are skewed by hours logged in, not by rider productivity.</div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h3>Orders/hr by drop distance</h3><span class="sub">Rolling 14 days · rider-days with ≥1 order, bucketed by avg drop distance</span></div>
+      <table>
+        <thead><tr><th>Drop distance</th><th>Rider-days</th><th>Avg login hrs</th><th>Avg orders</th><th>Orders/login-hr</th></tr></thead>
+        <tbody id="tbl-distance"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
+      </table>
+    </section>
+
+  </div>
+
+</main>
+
+<script>
+var SB_URL='https://clkfvmmlgwcvntxnolsv.supabase.co';
+var ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsa2Z2bW1sZ3djdm50eG5vbHN2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDQ2NTgsImV4cCI6MjA5MDEyMDY1OH0.FA33GFQisWX_hDeGCWqL5yAZmPcuQRdxZX32I23lyoY';
+var sbClient=supabase.createClient(SB_URL,ANON_KEY,{auth:{persistSession:true,storageKey:'pulse_session',autoRefreshToken:true}});
+var sbTasks=sbClient.schema('tasks');
+
+function showEl(id){document.getElementById(id).style.display='';}
+function hideEl(id){document.getElementById(id).style.display='none';}
+function showAuthScreen(){document.getElementById('auth-screen').style.display='flex';hideEl('pending-screen');document.getElementById('dash').style.display='none';}
+function showPendingScreen(){hideEl('auth-screen');document.getElementById('pending-screen').style.display='flex';document.getElementById('dash').style.display='none';}
+function showDash(){hideEl('auth-screen');hideEl('pending-screen');document.getElementById('dash').style.display='block';}
+
+async function sendMagicLink(){
+  var email=document.getElementById('auth-email').value.trim().toLowerCase();
+  var msg=document.getElementById('auth-msg');
+  var btn=document.getElementById('auth-submit');
+  if(!email){msg.textContent='Please enter your email.';return;}
+  btn.disabled=true;btn.textContent='Sending…';msg.textContent='';
+  var res=await sbClient.auth.signInWithOtp({email:email,options:{emailRedirectTo:window.location.origin+window.location.pathname}});
+  btn.disabled=false;btn.textContent='Send magic link';
+  if(res.error){msg.textContent=res.error.message||'Failed to send link. Try again.';}
+  else{
+    document.getElementById('auth-form').style.display='none';
+    document.getElementById('auth-sent').style.display='block';
+    document.getElementById('auth-sent-email').textContent=email;
+  }
+}
+document.getElementById('auth-email').addEventListener('keydown',function(e){if(e.key==='Enter')sendMagicLink();});
+
+async function signOut(){await sbClient.auth.signOut();document.getElementById('logout-btn').style.display='none';showAuthScreen();}
+
+function fmtDate(iso){if(!iso)return '—';var d=new Date(iso);return d.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}
+function fmtDateOnly(iso){if(!iso)return '—';var d=new Date(iso+'T00:00:00Z');return d.toLocaleDateString('en-IN',{timeZone:'UTC',day:'numeric',month:'short'});}
+function nz(v,dp){if(v===null||v===undefined)return '—';return dp!==undefined?Number(v).toFixed(dp):v;}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+async function loadSyncStatus(){
+  var {data,error}=await sbTasks.from('v_sync_status').select('*').order('source');
+  var tbody=document.getElementById('tbl-sync');
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="5">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  tbody.innerHTML=data.map(function(r){
+    var cls=r.last_status==='ok'?'status-ok':(r.last_status?'status-'+r.last_status:'');
+    return '<tr><td>'+esc(r.source)+'</td><td>'+fmtDate(r.last_synced_at)+'</td><td>'+nz(r.last_row_count)+'</td><td>'+nz(r.sync_last_id)+'</td><td class="'+cls+'">'+esc(r.last_status||'—')+'</td></tr>';
+  }).join('');
+}
+
+async function loadWeekly(){
+  var {data,error}=await sbTasks.from('v_weekly_summary').select('*').order('week_start_mon',{ascending:false});
+  var tbody=document.getElementById('tbl-weekly');
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="8">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  tbody.innerHTML=data.map(function(r){
+    return '<tr><td>'+fmtDateOnly(r.week_start_mon)+' – '+fmtDateOnly(r.week_end_sun)+'</td><td>'+nz(r.riders_engaged)+'</td><td>'+nz(r.riders_with_orders)+'</td><td>'+nz(r.pct_zero_orders_among_engaged)+'%</td><td>'+nz(r.median_orders_among_engaged)+'</td><td>'+nz(r.orders_per_login_hour)+'</td><td>'+nz(r.total_orders)+'</td><td>'+nz(r.avg_drop_distance_km)+'</td></tr>';
+  }).join('');
+}
+
+async function loadTenure(){
+  var {data,error}=await sbTasks.from('v_new_vs_old_summary').select('*').order('tenure_bucket');
+  var tbody=document.getElementById('tbl-tenure');
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  tbody.innerHTML=data.map(function(r){
+    return '<tr><td>'+esc(r.tenure_bucket)+'</td><td>'+nz(r.riders)+'</td><td>'+nz(r.pct_zero_orders)+'%</td><td>'+nz(r.median_orders)+'</td><td>'+nz(r.mean_orders)+'</td><td>'+nz(r.mean_pings)+'</td><td>'+nz(r.mean_login_hours)+'</td></tr>';
+  }).join('');
+}
+
+async function loadLoginBuckets(){
+  var order=['0 (not logged in)','0-2h','2-4h','4-6h','6h+'];
+  var {data,error}=await sbTasks.from('v_login_bucket_summary').select('*');
+  var tbody=document.getElementById('tbl-login');
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="6">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  data.sort(function(a,b){return order.indexOf(a.login_bucket)-order.indexOf(b.login_bucket);});
+  tbody.innerHTML=data.map(function(r){
+    return '<tr><td>'+esc(r.login_bucket)+'</td><td>'+nz(r.rider_days)+'</td><td>'+nz(r.pct_zero_orders)+'%</td><td>'+nz(r.median_orders)+'</td><td>'+nz(r.mean_orders)+'</td><td>'+nz(r.orders_per_login_hour)+'</td></tr>';
+  }).join('');
+}
+
+async function loadDistanceBuckets(){
+  var order=['<2km','2-3km','3-4km','4-5km','5km+','no order that day'];
+  var {data,error}=await sbTasks.from('v_distance_bucket_summary').select('*');
+  var tbody=document.getElementById('tbl-distance');
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="5">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  data.sort(function(a,b){return order.indexOf(a.drop_dist_bucket)-order.indexOf(b.drop_dist_bucket);});
+  tbody.innerHTML=data.map(function(r){
+    return '<tr><td>'+esc(r.drop_dist_bucket)+'</td><td>'+nz(r.rider_days)+'</td><td>'+nz(r.avg_login_hours)+'</td><td>'+nz(r.avg_orders)+'</td><td>'+nz(r.orders_per_login_hour)+'</td></tr>';
+  }).join('');
+}
+
+async function loadAllDashboardData(){
+  loadSyncStatus();loadWeekly();loadTenure();loadLoginBuckets();loadDistanceBuckets();
+}
+
+async function onSignedIn(session){
+  document.getElementById('logout-btn').style.display='block';
+  var {data,error}=await sbTasks.rpc('is_member');
+  if(error||!data){showPendingScreen();return;}
+  showDash();
+  loadAllDashboardData();
+}
+
+(async function(){
+  var {data:{session}}=await sbClient.auth.getSession();
+  if(session){await onSignedIn(session);} else {showAuthScreen();}
+  sbClient.auth.onAuthStateChange(async function(event,session){
+    if(event==='SIGNED_IN'&&session){await onSignedIn(session);}
+    else if(event==='SIGNED_OUT'){document.getElementById('logout-btn').style.display='none';showAuthScreen();}
+  });
+})();
+</script>
+
+</body>
+</html>
