@@ -17,11 +17,11 @@ This session couldn't push to GitHub directly (no `gh` CLI / git remote configur
 sandbox). To finish the deploy Vamsee decided on:
 
 1. **Create a new GitHub repo** (e.g. `pulse-ui`), any visibility.
-2. From this folder:
+2. From this folder (currently on branch `master` — this sandbox's filesystem couldn't
+   rename it locally, GitHub will let you rename the default branch after push if you want `main`):
    ```
    git remote add origin https://github.com/<you>/pulse-ui.git
-   git branch -M main
-   git push -u origin main
+   git push -u origin master
    ```
 3. **Enable GitHub Pages**: repo Settings → Pages → Deploy from branch `main` / root.
 4. **BigRock DNS**: add `CNAME tasks → <you>.github.io` for `bounceops.online` (the `CNAME`
