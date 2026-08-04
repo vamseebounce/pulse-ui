@@ -533,7 +533,8 @@ var ANALYSIS_SECTIONS=[
   ]},
   {title:'Notifications',desc:'riders pinged per order · measures pings sent, not true eligibility · window 17–27 Jul only',panels:[
     {key:'notif',title:'Notification coverage',sub:'Distinct riders pinged per order',span:2,
-      dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By zone'],['hour_of_day','By hour of day']]}
+      dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By zone'],['hour_of_day','By hour of day']],
+      note:'Hover a segment for exact counts.'}
   ]}
 ];
 var ANALYSIS_PANELS=[];
@@ -553,7 +554,7 @@ function buildAnalysisPanelsInto(containerId,suffix){
           '<select id="'+p.key+'-dv-'+suffix+'" onchange="renderPanel(\''+p.key+'\',\''+suffix+'\')"></select></div>';
       }
       var chartHtml=p.chart===false?'':'<div class="chart-wrap"><canvas id="'+p.key+'-chart-'+suffix+'"></canvas></div>';
-      var noteHtml=p.note?'<div class="note">'+esc(p.note)+'</div>':'';
+      var noteHtml=p.note?'<div class="note" id="'+p.key+'-note-'+suffix+'">'+esc(p.note)+'</div>':'';
       var tableCore='<table><thead id="'+p.key+'-thead-'+suffix+'"></thead><tbody id="'+p.key+'-tbody-'+suffix+'"><tr class="empty-row"><td>Loading…</td></tr></tbody></table>';
       var tableHtml=p.tableOpen?'<div class="tbl-x">'+tableCore+'</div>':
         '<details class="tbl"><summary>View data table</summary><div class="tbl-scroll">'+tableCore+'</div></details>';
@@ -806,10 +807,37 @@ function renderNotif(rows,suffix){
   var sorted=f.slice().sort(function(a,b){return a.dimension_value.localeCompare(b.dimension_value)||bucketOrder.indexOf(a.coverage_bucket)-bucketOrder.indexOf(b.coverage_bucket);});
   tbody.innerHTML=sorted.map(function(r){return '<tr><td>'+esc(r.dimension_value)+'</td><td>'+esc(r.coverage_bucket)+'</td><td>'+nz(r.order_count)+'</td><td>'+nz(r.of_which_assigned)+'</td><td>'+nz(r.pct_of_dim)+'%</td></tr>';}).join('');
   var vals=Array.from(new Set(f.map(function(r){return r.dimension_value;}))).sort();
-  var datasets=bucketOrder.map(function(bk){
-    return {label:bk,data:vals.map(function(v){var r=f.find(function(x){return x.dimension_value===v&&x.coverage_bucket===bk;});return r?r.pct_of_dim:0;}),backgroundColor:COVERAGE_COLORS[bk]};
+  var lookup={};
+  f.forEach(function(r){lookup[r.dimension_value+'|'+r.coverage_bucket]=r;});
+  /* minBarLength keeps sub-1% buckets visible & hoverable (nulls stay skipped).
+     Rounded pcts can sum to slightly >100 and clip the last sliver against the
+     axis cap, so scale each row to ≤100 for drawing — tooltips read the raw rows. */
+  var rowScale=vals.map(function(v){
+    var t=bucketOrder.reduce(function(s,bk){var r=lookup[v+'|'+bk];return s+(r?Number(r.pct_of_dim)||0:0);},0);
+    return t>100?100/t:1;
   });
-  renderChart('notif-chart-'+suffix,{horizontal:true,stacked:true,pct:true,labels:vals,datasets:datasets});
+  var datasets=bucketOrder.map(function(bk){
+    return {label:bk,minBarLength:2,
+      data:vals.map(function(v,i){var r=lookup[v+'|'+bk];return r?(Number(r.pct_of_dim)||0)*rowScale[i]:null;}),
+      backgroundColor:COVERAGE_COLORS[bk]};
+  });
+  renderChart('notif-chart-'+suffix,{horizontal:true,stacked:true,pct:true,labels:vals,datasets:datasets,
+    tooltipLabel:function(ctx){
+      var r=lookup[vals[ctx.dataIndex]+'|'+ctx.dataset.label];
+      return ctx.dataset.label+': '+(r?r.pct_of_dim+'% ('+nz(r.order_count)+' orders)':'—');
+    }});
+  var note=document.getElementById('notif-note-'+suffix);
+  if(note){
+    var parts=vals.slice(0,8).map(function(v){
+      var pct=0,cnt=0;
+      ['2-5 riders','6-15 riders','16+ riders'].forEach(function(bk){
+        var r=lookup[v+'|'+bk];
+        if(r){pct+=Number(r.pct_of_dim)||0;cnt+=Number(r.order_count)||0;}
+      });
+      return (vals.length>1?v+' ':'')+pct.toFixed(1)+'% ('+nz(cnt)+' orders)';
+    });
+    note.textContent='Reached ≥2 riders — '+parts.join(' · ')+(vals.length>8?' · …':'')+'. Hover a segment for exact counts.';
+  }
 }
 
 /* ============== BOOT ============== */
