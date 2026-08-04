@@ -13,13 +13,13 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);}
-  header{display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid var(--border);}
+  header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);}
   header .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:18px;}
   header .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);}
   header .meta{color:var(--muted);font-size:13px;}
   #logout-btn{display:none;background:var(--panel2);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px;}
   #logout-btn:hover{border-color:var(--accent);}
-  main{max-width:1180px;margin:0 auto;padding:24px;}
+  main{max-width:1320px;margin:0 auto;padding:22px 24px 60px;}
   .hidden{display:none !important;}
 
   /* Auth screen */
@@ -39,24 +39,66 @@
 
   /* Dashboard */
   #dash{display:none;}
-  section.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;margin-bottom:20px;overflow:hidden;}
-  section.card .card-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;}
-  section.card .card-head h3{margin:0;font-size:15px;}
+  section.card{background:var(--panel);border:1px solid var(--border);border-radius:10px;margin-bottom:18px;overflow:hidden;}
+  section.card .card-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+  section.card .card-head h3{margin:0;font-size:14px;}
   section.card .card-head .sub{color:var(--muted);font-size:12px;}
-  table{width:100%;border-collapse:collapse;font-size:13px;}
-  th,td{padding:9px 14px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{padding:8px 14px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;}
   th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
   th:first-child,td:first-child{text-align:left;}
+  tbody tr:last-child td{border-bottom:none;}
   tbody tr:hover{background:var(--panel2);}
   .status-ok{color:var(--good);}
   .status-error, .status-exception{color:var(--bad);}
   .empty-row td{color:var(--muted);text-align:center;padding:20px;}
-  .note{color:var(--muted);font-size:12px;padding:10px 18px;border-top:1px solid var(--border);}
+  .note{color:var(--muted);font-size:12px;padding:9px 16px;border-top:1px solid var(--border);}
 
-  .week-picker-bar,.day-picker-bar{display:flex;align-items:center;gap:10px;margin:-6px 0 20px;padding:10px 14px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;}
-  .week-picker-bar label,.day-picker-bar label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
+  /* Section headers */
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin:28px 0 14px;}
+  .sec-head h2{margin:0;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);white-space:nowrap;}
+  .sec-head .sec-desc{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sec-head::after{content:'';flex:1;height:1px;background:var(--border);min-width:24px;}
+
+  /* KPI strip */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:12px;margin:0 0 6px;}
+  .kpi{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:13px 16px 11px;}
+  .kpi .kpi-label{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:6px;}
+  .kpi .kpi-val{font-size:24px;font-weight:700;line-height:1.1;}
+  .kpi .kpi-sub{color:var(--muted);font-size:11px;margin-top:5px;}
+
+  /* Two-column panel grid */
+  .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-bottom:18px;align-items:start;}
+  .grid2>section.card{margin-bottom:0;}
+  .grid2 .span2{grid-column:1/-1;}
+  @media(max-width:1080px){.grid2{grid-template-columns:1fr;}}
+
+  /* Collapsible data tables */
+  details.tbl>summary{list-style:none;cursor:pointer;padding:9px 16px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);user-select:none;}
+  details.tbl>summary::-webkit-details-marker{display:none;}
+  details.tbl>summary::before{content:'▸';display:inline-block;margin-right:7px;color:var(--accent);transition:transform .15s;}
+  details.tbl[open]>summary::before{transform:rotate(90deg);}
+  details.tbl>summary:hover{color:var(--text);background:var(--panel2);}
+  details.tbl .tbl-scroll{max-height:420px;overflow:auto;}
+  .tbl-x{overflow-x:auto;}
+  .grid2 th,.grid2 td{padding:8px 10px;}
+  .grid2 th{white-space:normal;}
+
+  /* Sync chips */
+  .sync-chips{display:flex;flex-wrap:wrap;gap:8px;padding:12px 16px;}
+  .sync-chip{display:inline-flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12px;color:var(--text);}
+  .sync-chip .dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .sync-chip .dot.ok{background:var(--good);box-shadow:0 0 6px rgba(62,207,142,.5);}
+  .sync-chip .dot.err{background:var(--bad);box-shadow:0 0 6px rgba(240,85,75,.5);}
+  .sync-chip .when{color:var(--muted);}
+
+  /* Week / day picker bars — sticky so the scope is always visible */
+  .week-picker-bar,.day-picker-bar{position:sticky;top:10px;z-index:30;display:flex;align-items:center;gap:10px;margin:0 0 16px;padding:10px 14px;
+    background:rgba(30,34,43,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.35);}
+  .week-picker-bar label,.day-picker-bar label{font-size:11px;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
   .week-picker-bar select,.day-picker-bar select{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;cursor:pointer;}
   .week-picker-bar select:focus,.day-picker-bar select:focus{outline:none;border-color:var(--accent);}
+  .week-picker-bar .sub,.day-picker-bar .sub{color:var(--muted);font-size:12px;}
   tr.week-row-selected{background:rgba(91,157,255,.12);}
 
   /* Tabs */
@@ -67,12 +109,15 @@
   .tabpanel.tab-visible{display:block;}
 
   /* Filter bar inside a card */
-  .filter-bar{display:flex;align-items:center;gap:8px;padding:10px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--panel2);}
-  .filter-bar label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
-  .filter-bar select{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;cursor:pointer;}
+  .filter-bar{display:flex;align-items:center;gap:8px;padding:9px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;background:var(--panel2);}
+  .filter-bar label{font-size:11px;color:var(--accent);background:rgba(91,157,255,.12);padding:3px 9px;border-radius:5px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;}
+  .filter-bar select{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:5px 9px;font-size:12px;cursor:pointer;max-width:340px;}
+  .filter-bar select:hover{border-color:var(--accent);}
+  .filter-bar select:focus{outline:none;border-color:var(--accent);}
 
-  .chart-wrap{padding:16px 18px 4px;height:220px;}
-  .chart-wrap.tall{height:280px;}
+  .chart-wrap{padding:14px 16px 8px;height:250px;position:relative;}
+
+  .info-strip{color:var(--muted);font-size:12px;padding:10px 14px;border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:8px;margin-bottom:18px;background:var(--panel);}
 </style>
 </head>
 <body>
@@ -112,10 +157,14 @@
 
     <section class="card">
       <div class="card-head"><h3>Sync status</h3><span class="sub">Metabase → Supabase pipeline</span></div>
-      <table>
-        <thead><tr><th>Source</th><th>Last sync (IST)</th><th>Last batch</th><th>Sync ID</th><th>Status</th></tr></thead>
-        <tbody id="tbl-sync"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
-      </table>
+      <div class="sync-chips" id="sync-chips"><span class="sub" style="color:var(--muted);font-size:12px;">Loading…</span></div>
+      <details class="tbl">
+        <summary>View sync detail</summary>
+        <table>
+          <thead><tr><th>Source</th><th>Last sync (IST)</th><th>Last batch</th><th>Sync ID</th><th>Status</th></tr></thead>
+          <tbody id="tbl-sync"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
+        </table>
+      </details>
     </section>
 
     <div class="tabbar">
@@ -126,44 +175,59 @@
     <!-- ==================== WEEK LEVEL ==================== -->
     <div id="tab-week" class="tabpanel">
 
-      <section class="card">
-        <div class="card-head"><h3>Weekly trend</h3><span class="sub">Monday–Sunday · every complete/in-progress week on record</span></div>
-        <table>
-          <thead><tr><th>Week</th><th>Riders engaged</th><th>Riders w/ orders</th><th>% zero orders</th><th>Median orders</th><th>Orders/login-hr</th><th>Total orders</th><th>Avg drop km</th></tr></thead>
-          <tbody id="tbl-weekly"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
-        </table>
-      </section>
-
       <div class="week-picker-bar">
         <label for="week-picker">Week starting</label>
         <select id="week-picker" onchange="onWeekChange()"><option>Loading…</option></select>
         <span id="week-picker-note" class="sub"></span>
       </div>
 
+      <div class="kpis" id="kpis-week">
+        <div class="kpi" id="kpi-orders-week"><div class="kpi-label">Total orders</div><div class="kpi-val">—</div><div class="kpi-sub">broadcast, selected week</div></div>
+        <div class="kpi" id="kpi-riders-week"><div class="kpi-label">Riders w/ orders</div><div class="kpi-val">—</div><div class="kpi-sub">of riders engaged</div></div>
+        <div class="kpi" id="kpi-truedemand-week"><div class="kpi-label">True demand</div><div class="kpi-val">—</div><div class="kpi-sub">% of cancels surviving &gt;15s</div></div>
+        <div class="kpi" id="kpi-accept-week"><div class="kpi-label">Accept rate</div><div class="kpi-val">—</div><div class="kpi-sub">pinged → assigned &amp; delivering</div></div>
+        <div class="kpi" id="kpi-dwell-week"><div class="kpi-label">Median fulfillment</div><div class="kpi-val">—</div><div class="kpi-sub">assigned → delivered</div></div>
+        <div class="kpi" id="kpi-notif-week"><div class="kpi-label">Notification coverage</div><div class="kpi-val">—</div><div class="kpi-sub">orders pinged to ≥1 rider</div></div>
+      </div>
+
+      <div class="sec-head"><h2>Fleet overview</h2><span class="sec-desc">every week on record — pick one above to scope the rest of the page</span></div>
+
+      <section class="card">
+        <div class="card-head"><h3>Weekly trend</h3><span class="sub">Monday–Sunday · every complete/in-progress week on record</span></div>
+        <div class="tbl-x"><table>
+          <thead><tr><th>Week</th><th>Riders engaged</th><th>Riders w/ orders</th><th>% zero orders</th><th>Median orders</th><th>Orders/login-hr</th><th>Total orders</th><th>Avg drop km</th></tr></thead>
+          <tbody id="tbl-weekly"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <div class="sec-head"><h2>Rider engagement</h2><span class="sec-desc">who showed up, how long they stayed online, what they carried</span></div>
+
       <section class="card">
         <div class="card-head"><h3>New vs. old riders</h3><span class="sub" id="sub-tenure">tenure ≤7d vs &gt;7d since first session</span></div>
-        <table>
+        <div class="tbl-x"><table>
           <thead><tr><th>Segment</th><th>Riders</th><th>% zero orders</th><th>Median orders</th><th>Mean orders</th><th>Mean pings</th><th>Mean login hrs</th></tr></thead>
           <tbody id="tbl-tenure"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
-        </table>
+        </table></div>
       </section>
 
-      <section class="card">
-        <div class="card-head"><h3>Login-hour split</h3><span class="sub">Rider-days that week, bucketed by daily login duration</span></div>
-        <table>
-          <thead><tr><th>Login hours</th><th>Rider-days</th><th>% zero orders</th><th>Median orders</th><th>Mean orders</th><th>Orders/login-hr</th></tr></thead>
-          <tbody id="tbl-login"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
-        </table>
-        <div class="note">Orders/login-hr flat across buckets = day-level averages are skewed by hours logged in, not by rider productivity.</div>
-      </section>
+      <div class="grid2">
+        <section class="card">
+          <div class="card-head"><h3>Login-hour split</h3><span class="sub">Rider-days, by daily login duration</span></div>
+          <div class="tbl-x"><table>
+            <thead><tr><th>Login hours</th><th>Rider-days</th><th>% zero orders</th><th>Median orders</th><th>Mean orders</th><th>Orders/login-hr</th></tr></thead>
+            <tbody id="tbl-login"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+          </table></div>
+          <div class="note">Orders/login-hr flat across buckets = day-level averages are skewed by hours logged in, not by rider productivity.</div>
+        </section>
 
-      <section class="card">
-        <div class="card-head"><h3>Orders/hr by drop distance</h3><span class="sub">Rider-days that week with ≥1 order, bucketed by avg drop distance</span></div>
-        <table>
-          <thead><tr><th>Drop distance</th><th>Rider-days</th><th>Avg login hrs</th><th>Avg orders</th><th>Orders/login-hr</th></tr></thead>
-          <tbody id="tbl-distance"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
-        </table>
-      </section>
+        <section class="card">
+          <div class="card-head"><h3>Orders/hr by drop distance</h3><span class="sub">Rider-days with ≥1 order, by avg drop distance</span></div>
+          <div class="tbl-x"><table>
+            <thead><tr><th>Drop distance</th><th>Rider-days</th><th>Avg login hrs</th><th>Avg orders</th><th>Orders/login-hr</th></tr></thead>
+            <tbody id="tbl-distance"><tr class="empty-row"><td colspan="5">Loading…</td></tr></tbody>
+          </table></div>
+        </section>
+      </div>
 
       <div id="analysis-panels-week"></div>
 
@@ -178,9 +242,18 @@
         <span id="day-picker-note" class="sub"></span>
       </div>
 
-      <div class="note" style="border:1px solid var(--border);border-radius:8px;margin-bottom:20px;background:var(--panel);">
+      <div class="kpis" id="kpis-day">
+        <div class="kpi" id="kpi-orders-day"><div class="kpi-label">Total orders</div><div class="kpi-val">—</div><div class="kpi-sub">broadcast, selected day</div></div>
+        <div class="kpi" id="kpi-cancel-day"><div class="kpi-label">Cancelled</div><div class="kpi-val">—</div><div class="kpi-sub">% of all broadcast orders</div></div>
+        <div class="kpi" id="kpi-truedemand-day"><div class="kpi-label">True demand</div><div class="kpi-val">—</div><div class="kpi-sub">% of cancels surviving &gt;15s</div></div>
+        <div class="kpi" id="kpi-accept-day"><div class="kpi-label">Accept rate</div><div class="kpi-val">—</div><div class="kpi-sub">pinged → assigned &amp; delivering</div></div>
+        <div class="kpi" id="kpi-dwell-day"><div class="kpi-label">Median fulfillment</div><div class="kpi-val">—</div><div class="kpi-sub">assigned → delivered</div></div>
+        <div class="kpi" id="kpi-notif-day"><div class="kpi-label">Notification coverage</div><div class="kpi-val">—</div><div class="kpi-sub">orders pinged to ≥1 rider</div></div>
+      </div>
+
+      <div class="info-strip">
         Rider-engagement panels (new vs. old, login-hour split, distance split) are only computed at week grain today —
-        the underlying rider-session feed doesn't support a clean daily cut yet. Order/cancellation/dispatch panels below are daily.
+        the underlying rider-session feed doesn't support a clean daily cut yet. The panels below are daily.
       </div>
 
       <div id="analysis-panels-day"></div>
@@ -224,7 +297,13 @@ async function signOut(){await sbClient.auth.signOut();document.getElementById('
 
 function fmtDate(iso){if(!iso)return '—';var d=new Date(iso);return d.toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});}
 function fmtDateOnly(iso){if(!iso)return '—';var d=new Date(iso+'T00:00:00Z');return d.toLocaleDateString('en-IN',{timeZone:'UTC',day:'numeric',month:'short'});}
-function nz(v,dp){if(v===null||v===undefined)return '—';return dp!==undefined?Number(v).toFixed(dp):v;}
+function nz(v,dp){
+  if(v===null||v===undefined)return '—';
+  if(dp!==undefined)return Number(v).toFixed(dp);
+  var n=Number(v);
+  if(isNaN(n))return v;
+  return Math.abs(n)>=1000&&Number.isInteger(n)?n.toLocaleString('en-IN'):String(n);
+}
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function weekEndFromStart(mon){var d=new Date(mon+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+6);return d.toISOString().slice(0,10);}
 
@@ -244,7 +323,18 @@ function switchTab(tab){
 async function loadSyncStatus(){
   var {data,error}=await sbTasks.from('v_sync_status').select('*').order('source');
   var tbody=document.getElementById('tbl-sync');
-  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="5">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  var chips=document.getElementById('sync-chips');
+  if(error||!data||!data.length){
+    var msg=error?esc(error.message):'No data';
+    tbody.innerHTML='<tr class="empty-row"><td colspan="5">'+msg+'</td></tr>';
+    chips.innerHTML='<span style="color:var(--muted);font-size:12px;">'+msg+'</span>';
+    return;
+  }
+  chips.innerHTML=data.map(function(r){
+    var ok=r.last_status==='ok';
+    return '<span class="sync-chip"><span class="dot '+(ok?'ok':'err')+'"></span>'+esc(r.source)+
+      '<span class="when">'+fmtDate(r.last_synced_at)+'</span></span>';
+  }).join('');
   tbody.innerHTML=data.map(function(r){
     var cls=r.last_status==='ok'?'status-ok':(r.last_status?'status-'+r.last_status:'');
     return '<tr><td>'+esc(r.source)+'</td><td>'+fmtDate(r.last_synced_at)+'</td><td>'+nz(r.last_row_count)+'</td><td>'+nz(r.sync_last_id)+'</td><td class="'+cls+'">'+esc(r.last_status||'—')+'</td></tr>';
@@ -359,64 +449,120 @@ function refreshDayScopedPanels(){
   loadAllAnalysisPanels('day',selectedDay,'day');
 }
 
+/* ============== SEMANTIC COLORS ============== */
+var C={good:'#3ecf8e',bad:'#f0554b',warn:'#f5a623',accent:'#5b9dff',cyan:'#38bdf8',purple:'#b57bff',pink:'#fb7185',lime:'#a3e635'};
+var PALETTE=[C.accent,C.good,C.warn,C.bad,C.purple,C.cyan,C.pink,C.lime];
+/* fixed meanings, reused everywhere: good=green, bad=red, in-between=amber */
+var OUTCOME_COLORS={'delivered':C.good,'cancelled_after_assign':C.bad,'stuck/in_progress':C.warn};
+var COVERAGE_COLORS={'0 riders (no notification attempt)':C.bad,'1 rider':C.warn,'2-5 riders':C.accent,'6-15 riders':C.cyan,'16+ riders':C.good};
+var SEGMENT_COLORS={'loyal':C.good,'regular':C.accent,'parttimer':C.warn,'new':C.purple};
+var STAGE_COLORS=[C.accent,C.cyan,C.purple,C.good]; /* fulfillment legs, in journey order */
+
 /* ============== SHARED CHART HELPER ============== */
 var chartRegistry={};
-var PALETTE=['#5b9dff','#3ecf8e','#f5a623','#f0554b','#b57bff','#38bdf8','#fb7185','#a3e635'];
-function renderChart(canvasId,type,labels,datasets,stacked){
+/* opts: {type,labels,datasets,stacked,horizontal,pct (cap axis at 100 + % tooltips),
+          pctLabel (% tooltips only), tall, truncate, tooltipTitle, tooltipLabel} */
+function renderChart(canvasId,opts){
   var el=document.getElementById(canvasId);
   if(!el)return;
+  var wrap=el.parentElement;
+  var n=(opts.labels||[]).length;
+  if(opts.horizontal){
+    var perRow=opts.stacked?36:30;
+    var pad=(opts.datasets&&opts.datasets.length>1)?96:58;
+    wrap.style.height=Math.min(540,Math.max(150,n*perRow+pad))+'px';
+  } else {
+    wrap.style.height=(opts.tall?300:250)+'px';
+  }
   if(chartRegistry[canvasId]){chartRegistry[canvasId].destroy();}
+  var truncAt=opts.truncate||26;
+  var catTicks={color:'#9aa1ac',font:{size:10},autoSkip:!opts.horizontal,
+    callback:function(v){var l=this.getLabelForValue(v);return (typeof l==='string'&&l.length>truncAt)?l.slice(0,truncAt-1)+'…':l;}};
+  var valTicks={color:'#9aa1ac',font:{size:10}};
+  var xScale={stacked:!!opts.stacked,beginAtZero:true,grid:{color:'#232833'},ticks:opts.horizontal?valTicks:catTicks};
+  var yScale={stacked:!!opts.stacked,beginAtZero:true,grid:{color:'#232833'},ticks:opts.horizontal?catTicks:valTicks};
+  if(opts.pct){if(opts.horizontal)xScale.max=100;else yScale.max=100;}
+  var tooltip={titleFont:{size:12},bodyFont:{size:11},padding:10,callbacks:{}};
+  if(opts.pct||opts.pctLabel){
+    tooltip.callbacks.label=function(ctx){
+      var v=opts.horizontal?ctx.parsed.x:ctx.parsed.y;
+      return (ctx.dataset.label?ctx.dataset.label+': ':'')+v+'%';
+    };
+  }
+  if(opts.tooltipLabel)tooltip.callbacks.label=opts.tooltipLabel;
+  if(opts.tooltipTitle)tooltip.callbacks.title=opts.tooltipTitle;
   chartRegistry[canvasId]=new Chart(el.getContext('2d'),{
-    type:type,
-    data:{labels:labels,datasets:datasets},
+    type:opts.type||'bar',
+    data:{labels:opts.labels||[],datasets:opts.datasets||[]},
     options:{
+      indexAxis:opts.horizontal?'y':'x',
       responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:datasets.length>1,labels:{color:'#9aa1ac',boxWidth:12,font:{size:11}}},tooltip:{titleFont:{size:12},bodyFont:{size:11}}},
-      scales:{
-        x:{stacked:!!stacked,ticks:{color:'#9aa1ac',font:{size:10}},grid:{color:'#2a2f3a'}},
-        y:{stacked:!!stacked,beginAtZero:true,ticks:{color:'#9aa1ac',font:{size:10}},grid:{color:'#2a2f3a'}}
-      }
+      plugins:{
+        legend:{display:(opts.datasets||[]).length>1,position:'top',align:'end',labels:{color:'#9aa1ac',boxWidth:11,boxHeight:11,font:{size:11}}},
+        tooltip:tooltip
+      },
+      scales:{x:xScale,y:yScale}
     }
   });
 }
 
-/* ============== ANALYSIS PANEL DEFINITIONS ============== */
-var ANALYSIS_PANELS=[
-  {key:'cancel-summary',title:'Cancellation summary by integration',sub:'True-demand split (>15s = real demand) · all orders'},
-  {key:'cancel-dist',title:'Cancellation timing distribution',sub:'Created → cancelled, 5s buckets to 60s, then 60s+',
-    dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By zone'],['account','By account (ProSquad)']]},
-  {key:'cancel-reasons',title:'Cancellation reasons by timing bucket',sub:'Top reasons within 0-15s / 15-30s / 30-60s / 60s+',
-    dimTypes:[['overall','Overall'],['integration','By integration']]},
-  {key:'accept-factors',title:'Rider accept/reject factors',sub:'Accept rate = pinged rider ends up assigned & delivering · ping feed live 17–27 Jul only',
-    dimTypes:[['pickup_distance','Pickup distance'],['drop_distance','Drop distance'],['payout','Payout (₹)'],['account','Account'],['integration','Integration'],['hour_of_day','Hour of day'],['rider_segment','Rider segment (loyal ≥14d tenure & ≥40% active days)']]},
-  {key:'accept-seghour',title:'Accept rate: rider segment × hour of day',sub:'Loyal/regular vs. parttimer vs. new riders'},
-  {key:'dwell',title:'Assigned → delivered dwell times (median minutes)',sub:'No ETA field exists — this is dwell between real timestamps, not ETA vs. ATA',
-    dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By zone'],['account','By account (ProSquad)']]},
-  {key:'caar',title:'Cancellation reasons — after rider assignment',sub:'Only orders cancelled after a rider was already assigned',
-    dimTypes:[['overall','Overall'],['integration','By integration']]},
-  {key:'outcome-mix',title:'Post-assignment outcome mix',sub:'Delivered vs. cancelled-after-assign vs. stuck, of all assigned orders',
-    dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By zone']]},
-  {key:'notif',title:'Notification coverage',sub:'Distinct riders pinged per order · no stored eligibility rule exists, so this measures pings sent, not true eligibility · window 17–27 Jul only',
-    dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By zone'],['hour_of_day','By hour of day']]}
+/* ============== ANALYSIS PANELS — grouped into labeled sections ============== */
+var ANALYSIS_SECTIONS=[
+  {title:'Demand & cancellation',desc:'how much broadcast demand is real, and how fast it evaporates',panels:[
+    {key:'cancel-summary',title:'Cancellation summary by integration',sub:'True-demand split (>15s = real demand) · all orders',span:2,chart:false,tableOpen:true},
+    {key:'cancel-dist',title:'Cancellation timing distribution',sub:'Created → cancelled, 5s buckets to 60s, then 60s+',
+      dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By zone'],['account','By account (ProSquad)']],
+      note:'Red bars = cancelled within 15s (churn below the true-demand threshold) · blue = survived >15s.'},
+    {key:'cancel-reasons',title:'Cancellation reasons by timing bucket',sub:'Top reason per bucket · full list in the data table',
+      dimTypes:[['overall','Overall'],['integration','By integration']],
+      note:'Hover a bar for the full reason text.'}
+  ]},
+  {title:'Dispatch & acceptance',desc:'whether pinged riders take the job · ping feed live 17–27 Jul only',panels:[
+    {key:'accept-factors',title:'Rider accept/reject factors',sub:'Accept rate = pinged rider ends up assigned & delivering',
+      dimTypes:[['pickup_distance','Pickup distance'],['drop_distance','Drop distance'],['payout','Payout (₹)'],['account','Account'],['integration','Integration'],['hour_of_day','Hour of day'],['rider_segment','Rider segment (loyal ≥14d tenure & ≥40% active days)']]},
+    {key:'accept-seghour',title:'Accept rate: rider segment × hour of day',sub:'Loyal/regular vs. parttimer vs. new riders'}
+  ]},
+  {title:'Fulfillment',desc:'once a rider is assigned — leg times and how orders end',panels:[
+    {key:'dwell',title:'Assigned → delivered dwell times (median minutes)',sub:'No ETA field exists — this is dwell between real timestamps, not ETA vs. ATA',span:2,
+      dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By zone'],['account','By account (ProSquad)']]},
+    {key:'caar',title:'Cancellation reasons — after rider assignment',sub:'Only orders cancelled after a rider was already assigned',
+      dimTypes:[['overall','Overall'],['integration','By integration']],
+      note:'Hover a bar for the full reason text.'},
+    {key:'outcome-mix',title:'Post-assignment outcome mix',sub:'Of all assigned orders',
+      dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By zone']]}
+  ]},
+  {title:'Notifications',desc:'riders pinged per order · measures pings sent, not true eligibility · window 17–27 Jul only',panels:[
+    {key:'notif',title:'Notification coverage',sub:'Distinct riders pinged per order',span:2,
+      dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By zone'],['hour_of_day','By hour of day']]}
+  ]}
 ];
+var ANALYSIS_PANELS=[];
+ANALYSIS_SECTIONS.forEach(function(s){s.panels.forEach(function(p){ANALYSIS_PANELS.push(p);});});
 
 function buildAnalysisPanelsInto(containerId,suffix){
   var el=document.getElementById(containerId);
   if(el.getAttribute('data-built'))return;
   el.setAttribute('data-built','1');
-  el.innerHTML=ANALYSIS_PANELS.map(function(p){
-    var filterHtml='';
-    if(p.dimTypes){
-      filterHtml='<div class="filter-bar"><label>Cut</label>'+
-        '<select id="'+p.key+'-dt-'+suffix+'" onchange="onDimTypeChange(\''+p.key+'\',\''+suffix+'\')"></select>'+
-        '<select id="'+p.key+'-dv-'+suffix+'" onchange="renderPanel(\''+p.key+'\',\''+suffix+'\')"></select></div>';
-    }
-    return '<section class="card">'+
-      '<div class="card-head"><h3>'+esc(p.title)+'</h3><span class="sub">'+esc(p.sub)+'</span></div>'+
-      filterHtml+
-      '<div class="chart-wrap tall"><canvas id="'+p.key+'-chart-'+suffix+'"></canvas></div>'+
-      '<table><thead id="'+p.key+'-thead-'+suffix+'"></thead><tbody id="'+p.key+'-tbody-'+suffix+'"><tr class="empty-row"><td>Loading…</td></tr></tbody></table>'+
-      '</section>';
+  el.innerHTML=ANALYSIS_SECTIONS.map(function(sec){
+    var head='<div class="sec-head"><h2>'+esc(sec.title)+'</h2><span class="sec-desc">'+esc(sec.desc)+'</span></div>';
+    var cards=sec.panels.map(function(p){
+      var filterHtml='';
+      if(p.dimTypes){
+        filterHtml='<div class="filter-bar"><label>Cut</label>'+
+          '<select id="'+p.key+'-dt-'+suffix+'" onchange="onDimTypeChange(\''+p.key+'\',\''+suffix+'\')"></select>'+
+          '<select id="'+p.key+'-dv-'+suffix+'" onchange="renderPanel(\''+p.key+'\',\''+suffix+'\')"></select></div>';
+      }
+      var chartHtml=p.chart===false?'':'<div class="chart-wrap"><canvas id="'+p.key+'-chart-'+suffix+'"></canvas></div>';
+      var noteHtml=p.note?'<div class="note">'+esc(p.note)+'</div>':'';
+      var tableCore='<table><thead id="'+p.key+'-thead-'+suffix+'"></thead><tbody id="'+p.key+'-tbody-'+suffix+'"><tr class="empty-row"><td>Loading…</td></tr></tbody></table>';
+      var tableHtml=p.tableOpen?'<div class="tbl-x">'+tableCore+'</div>':
+        '<details class="tbl"><summary>View data table</summary><div class="tbl-scroll">'+tableCore+'</div></details>';
+      return '<section class="card'+(p.span===2?' span2':'')+'">'+
+        '<div class="card-head"><h3>'+esc(p.title)+'</h3><span class="sub">'+esc(p.sub)+'</span></div>'+
+        filterHtml+chartHtml+noteHtml+tableHtml+
+        '</section>';
+    }).join('');
+    return head+'<div class="grid2">'+cards+'</div>';
   }).join('');
 }
 
@@ -452,6 +598,7 @@ async function loadAllAnalysisPanels(grain,period,suffix){
     loadPanel('notif','v_notification_coverage_summary',grain,period,suffix)
   ];
   await Promise.all(jobs);
+  updateKpis(suffix);
 }
 
 async function loadPanel(key,view,grain,period,suffix){
@@ -482,24 +629,48 @@ function renderPanel(key,suffix){
 
 function setEmpty(key,suffix,cols){
   document.getElementById(key+'-tbody-'+suffix).innerHTML='<tr class="empty-row"><td colspan="'+cols+'">No data for this period</td></tr>';
-  renderChart(key+'-chart-'+suffix,'bar',[],[]);
+  renderChart(key+'-chart-'+suffix,{labels:[],datasets:[]});
 }
 
-/* --- cancel-summary: fixed cut = integration --- */
+/* ============== KPI STRIP ============== */
+function setKpi(id,val){
+  var el=document.getElementById(id);
+  if(el)el.querySelector('.kpi-val').textContent=val;
+}
+function updateKpis(suffix){
+  var cache=analysisCache[suffix]||{};
+  var cs=(cache['cancel-summary']||[]).find(function(r){return r.dimension_type==='overall';});
+  if(suffix==='week'){
+    var wr=weeklyRows.find(function(r){return r.week_start_mon===selectedWeek;});
+    setKpi('kpi-orders-week',wr?nz(wr.total_orders):'—');
+    setKpi('kpi-riders-week',wr?nz(wr.riders_with_orders)+' / '+nz(wr.riders_engaged):'—');
+  } else {
+    setKpi('kpi-orders-day',cs?nz(cs.total_orders):'—');
+    setKpi('kpi-cancel-day',cs?nz(cs.pct_cancelled)+'%':'—');
+  }
+  setKpi('kpi-truedemand-'+suffix,cs?nz(cs.pct_of_cancels_gt15s)+'%':'—');
+  var af=(cache['accept-factors']||[]).filter(function(r){return r.dimension_type==='integration';});
+  var pings=af.reduce(function(s,r){return s+(r.total_pings||0);},0);
+  var acc=af.reduce(function(s,r){return s+(r.accepted_count||0);},0);
+  setKpi('kpi-accept-'+suffix,pings?(acc/pings*100).toFixed(1)+'%':'—');
+  var dw=(cache['dwell']||[]).find(function(r){return r.dimension_type==='overall';});
+  setKpi('kpi-dwell-'+suffix,dw&&dw.median_min_total!==null?nz(dw.median_min_total)+' min':'—');
+  var nf=(cache['notif']||[]).filter(function(r){return r.dimension_type==='overall';});
+  var zero=nf.find(function(r){return /^0 riders/.test(r.coverage_bucket);});
+  setKpi('kpi-notif-'+suffix,nf.length?(100-(zero?Number(zero.pct_of_dim):0)).toFixed(1)+'%':'—');
+}
+
+/* --- cancel-summary: table is the primary artifact (headline lives in the KPI strip) --- */
 function renderCancelSummary(rows,suffix){
   var f=rows.filter(function(r){return r.dimension_type==='integration';}).sort(function(a,b){return b.total_orders-a.total_orders;});
   var thead=document.getElementById('cancel-summary-thead-'+suffix);
   thead.innerHTML='<tr><th>Integration</th><th>Total orders</th><th>Cancelled</th><th>Cancelled after assign</th><th>% cancelled</th><th>% of cancels &gt;15s (true demand)</th></tr>';
   var tbody=document.getElementById('cancel-summary-tbody-'+suffix);
-  if(!f.length)return setEmpty('cancel-summary',suffix,6);
+  if(!f.length){tbody.innerHTML='<tr class="empty-row"><td colspan="6">No data for this period</td></tr>';return;}
   tbody.innerHTML=f.map(function(r){return '<tr><td>'+esc(r.dimension_value)+'</td><td>'+nz(r.total_orders)+'</td><td>'+nz(r.cancelled_orders)+'</td><td>'+nz(r.cancelled_after_assign)+'</td><td>'+nz(r.pct_cancelled)+'%</td><td>'+nz(r.pct_of_cancels_gt15s)+'%</td></tr>';}).join('');
-  renderChart('cancel-summary-chart-'+suffix,'bar',f.map(function(r){return r.dimension_value;}),[
-    {label:'% cancelled',data:f.map(function(r){return r.pct_cancelled;}),backgroundColor:PALETTE[3]},
-    {label:'% of cancels >15s (true demand)',data:f.map(function(r){return r.pct_of_cancels_gt15s;}),backgroundColor:PALETTE[1]}
-  ]);
 }
 
-/* --- cancel-dist --- */
+/* --- cancel-dist: ≤15s churn in red, >15s true demand in blue --- */
 function renderCancelDist(rows,suffix){
   var dt=document.getElementById('cancel-dist-dt-'+suffix).value||'overall';
   var dv=document.getElementById('cancel-dist-dv-'+suffix).value||'All';
@@ -509,10 +680,12 @@ function renderCancelDist(rows,suffix){
   var tbody=document.getElementById('cancel-dist-tbody-'+suffix);
   if(!f.length)return setEmpty('cancel-dist',suffix,2);
   tbody.innerHTML=f.map(function(r){return '<tr><td>'+esc(r.time_bucket)+'</td><td>'+nz(r.cancelled_count)+'</td></tr>';}).join('');
-  renderChart('cancel-dist-chart-'+suffix,'bar',f.map(function(r){return r.time_bucket;}),[{label:'Cancelled orders',data:f.map(function(r){return r.cancelled_count;}),backgroundColor:PALETTE[0]}]);
+  var colors=f.map(function(r){return r.time_bucket_order<=3?'rgba(240,85,75,.65)':C.accent;});
+  renderChart('cancel-dist-chart-'+suffix,{labels:f.map(function(r){return r.time_bucket;}),
+    datasets:[{label:'Cancelled orders',data:f.map(function(r){return r.cancelled_count;}),backgroundColor:colors}]});
 }
 
-/* --- cancel-reasons --- */
+/* --- cancel-reasons: horizontal bars, short bucket labels, full reason in tooltip --- */
 function renderCancelReasons(rows,suffix){
   var dt=document.getElementById('cancel-reasons-dt-'+suffix).value||'overall';
   var dv=document.getElementById('cancel-reasons-dv-'+suffix).value||'All';
@@ -522,9 +695,12 @@ function renderCancelReasons(rows,suffix){
   thead.innerHTML='<tr><th>Bucket</th><th>Reason</th><th>Count</th><th>% of bucket</th></tr>';
   var tbody=document.getElementById('cancel-reasons-tbody-'+suffix);
   if(!f.length)return setEmpty('cancel-reasons',suffix,4);
-  tbody.innerHTML=f.map(function(r){return '<tr><td>'+esc(r.reason_bucket)+'</td><td style="text-align:left">'+esc(r.cancellation_reason)+'</td><td>'+nz(r.reason_count)+'</td><td>'+nz(r.pct_of_bucket)+'%</td></tr>';}).join('');
+  tbody.innerHTML=f.map(function(r){return '<tr><td>'+esc(r.reason_bucket)+'</td><td style="text-align:left;white-space:normal;">'+esc(r.cancellation_reason)+'</td><td>'+nz(r.reason_count)+'</td><td>'+nz(r.pct_of_bucket)+'%</td></tr>';}).join('');
   var top=f.filter(function(r){return r.rn===1;}).sort(function(a,b){return bucketOrder.indexOf(a.reason_bucket)-bucketOrder.indexOf(b.reason_bucket);});
-  renderChart('cancel-reasons-chart-'+suffix,'bar',top.map(function(r){return r.reason_bucket+' ('+r.cancellation_reason+')';}),[{label:'% of bucket (top reason)',data:top.map(function(r){return r.pct_of_bucket;}),backgroundColor:PALETTE[2]}]);
+  renderChart('cancel-reasons-chart-'+suffix,{horizontal:true,pct:true,
+    labels:top.map(function(r){return r.reason_bucket;}),
+    datasets:[{label:'% of bucket (top reason)',data:top.map(function(r){return r.pct_of_bucket;}),backgroundColor:C.warn}],
+    tooltipLabel:function(ctx){var r=top[ctx.dataIndex];return r.pct_of_bucket+'% — '+r.cancellation_reason;}});
 }
 
 /* --- accept-factors --- */
@@ -536,10 +712,11 @@ function renderAcceptFactors(rows,suffix){
   var tbody=document.getElementById('accept-factors-tbody-'+suffix);
   if(!f.length)return setEmpty('accept-factors',suffix,4);
   tbody.innerHTML=f.map(function(r){return '<tr><td>'+esc(r.dimension_value)+'</td><td>'+nz(r.total_pings)+'</td><td>'+nz(r.accepted_count)+'</td><td>'+nz(r.accept_rate_pct)+'%</td></tr>';}).join('');
-  renderChart('accept-factors-chart-'+suffix,'bar',f.map(function(r){return r.dimension_value;}),[{label:'Accept rate %',data:f.map(function(r){return r.accept_rate_pct;}),backgroundColor:PALETTE[0]}]);
+  renderChart('accept-factors-chart-'+suffix,{pctLabel:true,labels:f.map(function(r){return r.dimension_value;}),
+    datasets:[{label:'Accept rate %',data:f.map(function(r){return r.accept_rate_pct;}),backgroundColor:C.accent}]});
 }
 
-/* --- accept-seghour (no dim selector; fixed 3-line chart) --- */
+/* --- accept-seghour: fixed lines, one semantic color per segment, hours clipped to data --- */
 function renderAcceptSegHour(rows,suffix){
   var thead=document.getElementById('accept-seghour-thead-'+suffix);
   thead.innerHTML='<tr><th>Segment</th><th>Hour (IST)</th><th>Total pings</th><th>Accepted</th><th>Accept rate</th></tr>';
@@ -548,16 +725,20 @@ function renderAcceptSegHour(rows,suffix){
   var segs=Array.from(new Set(rows.map(function(r){return r.rider_segment;}))).sort();
   var sorted=rows.slice().sort(function(a,b){return a.rider_segment.localeCompare(b.rider_segment)||a.hour_ist-b.hour_ist;});
   tbody.innerHTML=sorted.map(function(r){return '<tr><td>'+esc(r.rider_segment)+'</td><td>'+(r.hour_ist!==null?String(r.hour_ist).padStart(2,'0')+':00':'—')+'</td><td>'+nz(r.total_pings)+'</td><td>'+nz(r.accepted_count)+'</td><td>'+nz(r.accept_rate_pct)+'%</td></tr>';}).join('');
-  var hours=Array.from({length:24},function(_,i){return i;});
+  var present=rows.map(function(r){return r.hour_ist;}).filter(function(h){return h!==null;});
+  var hMin=Math.min.apply(null,present),hMax=Math.max.apply(null,present);
+  var hours=[];for(var h=hMin;h<=hMax;h++)hours.push(h);
   var datasets=segs.map(function(seg,i){
     var byHour={};
     rows.filter(function(r){return r.rider_segment===seg;}).forEach(function(r){byHour[r.hour_ist]=r.accept_rate_pct;});
-    return {label:seg,data:hours.map(function(h){return byHour[h]!==undefined?byHour[h]:null;}),borderColor:PALETTE[i%PALETTE.length],backgroundColor:PALETTE[i%PALETTE.length],fill:false,tension:.25,spanGaps:true};
+    var col=SEGMENT_COLORS[seg]||PALETTE[i%PALETTE.length];
+    return {label:seg,data:hours.map(function(h){return byHour[h]!==undefined?byHour[h]:null;}),borderColor:col,backgroundColor:col,fill:false,tension:.25,spanGaps:true,pointRadius:2.5};
   });
-  renderChart('accept-seghour-chart-'+suffix,'line',hours.map(function(h){return String(h).padStart(2,'0')+':00';}),datasets);
+  renderChart('accept-seghour-chart-'+suffix,{type:'line',tall:true,pctLabel:true,
+    labels:hours.map(function(h){return String(h).padStart(2,'0')+':00';}),datasets:datasets});
 }
 
-/* --- dwell --- */
+/* --- dwell: horizontal stacked bars read as a per-leg timeline --- */
 function renderDwell(rows,suffix){
   var dt=document.getElementById('dwell-dt-'+suffix).value||'overall';
   var f=rows.filter(function(r){return r.dimension_type===dt;}).sort(function(a,b){return b.delivered_orders-a.delivered_orders;});
@@ -566,15 +747,19 @@ function renderDwell(rows,suffix){
   var tbody=document.getElementById('dwell-tbody-'+suffix);
   if(!f.length)return setEmpty('dwell',suffix,8);
   tbody.innerHTML=f.map(function(r){return '<tr><td>'+esc(r.dimension_value)+'</td><td>'+nz(r.delivered_orders)+'</td><td>'+nz(r.median_min_assign_to_atpickup)+'</td><td>'+nz(r.median_min_atpickup_to_pickedup)+'</td><td>'+nz(r.median_min_pickup_to_atdelivery)+'</td><td>'+nz(r.median_min_atdelivery_to_delivered)+'</td><td>'+nz(r.median_min_total)+'</td><td>'+nz(r.p90_min_total)+'</td></tr>';}).join('');
-  renderChart('dwell-chart-'+suffix,'bar',f.map(function(r){return r.dimension_value;}),[
-    {label:'Assign→at pickup',data:f.map(function(r){return r.median_min_assign_to_atpickup;}),backgroundColor:PALETTE[0]},
-    {label:'At pickup→picked up',data:f.map(function(r){return r.median_min_atpickup_to_pickedup;}),backgroundColor:PALETTE[1]},
-    {label:'Pickup→at delivery',data:f.map(function(r){return r.median_min_pickup_to_atdelivery;}),backgroundColor:PALETTE[2]},
-    {label:'At delivery→delivered',data:f.map(function(r){return r.median_min_atdelivery_to_delivered;}),backgroundColor:PALETTE[3]}
-  ],true);
+  var stages=[
+    ['Assign→at pickup','median_min_assign_to_atpickup'],
+    ['At pickup→picked up','median_min_atpickup_to_pickedup'],
+    ['Pickup→at delivery','median_min_pickup_to_atdelivery'],
+    ['At delivery→delivered','median_min_atdelivery_to_delivered']
+  ];
+  renderChart('dwell-chart-'+suffix,{horizontal:true,stacked:true,
+    labels:f.map(function(r){return r.dimension_value;}),
+    datasets:stages.map(function(s,i){return {label:s[0],data:f.map(function(r){return r[s[1]];}),backgroundColor:STAGE_COLORS[i]};}),
+    tooltipLabel:function(ctx){return ctx.dataset.label+': '+ctx.parsed.x+' min';}});
 }
 
-/* --- caar --- */
+/* --- caar: horizontal bars, truncated labels, full reason in tooltip --- */
 function renderCaar(rows,suffix){
   var dt=document.getElementById('caar-dt-'+suffix).value||'overall';
   var dv=document.getElementById('caar-dv-'+suffix).value||'All';
@@ -583,12 +768,15 @@ function renderCaar(rows,suffix){
   thead.innerHTML='<tr><th>Reason</th><th>Count</th><th>% of dimension</th></tr>';
   var tbody=document.getElementById('caar-tbody-'+suffix);
   if(!f.length)return setEmpty('caar',suffix,3);
-  tbody.innerHTML=f.map(function(r){return '<tr><td style="text-align:left">'+esc(r.cancellation_reason)+'</td><td>'+nz(r.reason_count)+'</td><td>'+nz(r.pct_of_dim)+'%</td></tr>';}).join('');
-  var top=f.slice(0,6);
-  renderChart('caar-chart-'+suffix,'bar',top.map(function(r){return r.cancellation_reason;}),[{label:'% of dimension',data:top.map(function(r){return r.pct_of_dim;}),backgroundColor:PALETTE[3]}]);
+  tbody.innerHTML=f.map(function(r){return '<tr><td style="text-align:left;white-space:normal;">'+esc(r.cancellation_reason)+'</td><td>'+nz(r.reason_count)+'</td><td>'+nz(r.pct_of_dim)+'%</td></tr>';}).join('');
+  var top=f.slice(0,8);
+  renderChart('caar-chart-'+suffix,{horizontal:true,truncate:38,
+    labels:top.map(function(r){return r.cancellation_reason;}),
+    datasets:[{label:'% of dimension',data:top.map(function(r){return r.pct_of_dim;}),backgroundColor:C.bad}],
+    tooltipLabel:function(ctx){return top[ctx.dataIndex].pct_of_dim+'% ('+nz(top[ctx.dataIndex].reason_count)+' orders)';}});
 }
 
-/* --- outcome-mix --- */
+/* --- outcome-mix: horizontal 100% stacked, delivered=green / cancelled=red / stuck=amber --- */
 function renderOutcomeMix(rows,suffix){
   var dt=document.getElementById('outcome-mix-dt-'+suffix).value||'overall';
   var f=rows.filter(function(r){return r.dimension_type===dt;});
@@ -600,13 +788,13 @@ function renderOutcomeMix(rows,suffix){
   var sorted=f.slice().sort(function(a,b){return a.dimension_value.localeCompare(b.dimension_value)||outcomeOrder.indexOf(a.outcome)-outcomeOrder.indexOf(b.outcome);});
   tbody.innerHTML=sorted.map(function(r){return '<tr><td>'+esc(r.dimension_value)+'</td><td>'+esc(r.outcome)+'</td><td>'+nz(r.order_count)+'</td><td>'+nz(r.pct_of_dim)+'%</td></tr>';}).join('');
   var vals=Array.from(new Set(f.map(function(r){return r.dimension_value;}))).sort();
-  var datasets=outcomeOrder.map(function(oc,i){
-    return {label:oc,data:vals.map(function(v){var r=f.find(function(x){return x.dimension_value===v&&x.outcome===oc;});return r?r.pct_of_dim:0;}),backgroundColor:PALETTE[i%PALETTE.length]};
+  var datasets=outcomeOrder.map(function(oc){
+    return {label:oc,data:vals.map(function(v){var r=f.find(function(x){return x.dimension_value===v&&x.outcome===oc;});return r?r.pct_of_dim:0;}),backgroundColor:OUTCOME_COLORS[oc]};
   });
-  renderChart('outcome-mix-chart-'+suffix,'bar',vals,datasets,true);
+  renderChart('outcome-mix-chart-'+suffix,{horizontal:true,stacked:true,pct:true,labels:vals,datasets:datasets});
 }
 
-/* --- notif --- */
+/* --- notif: horizontal 100% stacked, red (0 riders) → green (16+) --- */
 function renderNotif(rows,suffix){
   var dt=document.getElementById('notif-dt-'+suffix).value||'overall';
   var f=rows.filter(function(r){return r.dimension_type===dt;});
@@ -618,10 +806,10 @@ function renderNotif(rows,suffix){
   var sorted=f.slice().sort(function(a,b){return a.dimension_value.localeCompare(b.dimension_value)||bucketOrder.indexOf(a.coverage_bucket)-bucketOrder.indexOf(b.coverage_bucket);});
   tbody.innerHTML=sorted.map(function(r){return '<tr><td>'+esc(r.dimension_value)+'</td><td>'+esc(r.coverage_bucket)+'</td><td>'+nz(r.order_count)+'</td><td>'+nz(r.of_which_assigned)+'</td><td>'+nz(r.pct_of_dim)+'%</td></tr>';}).join('');
   var vals=Array.from(new Set(f.map(function(r){return r.dimension_value;}))).sort();
-  var datasets=bucketOrder.map(function(bk,i){
-    return {label:bk,data:vals.map(function(v){var r=f.find(function(x){return x.dimension_value===v&&x.coverage_bucket===bk;});return r?r.pct_of_dim:0;}),backgroundColor:PALETTE[i%PALETTE.length]};
+  var datasets=bucketOrder.map(function(bk){
+    return {label:bk,data:vals.map(function(v){var r=f.find(function(x){return x.dimension_value===v&&x.coverage_bucket===bk;});return r?r.pct_of_dim:0;}),backgroundColor:COVERAGE_COLORS[bk]};
   });
-  renderChart('notif-chart-'+suffix,'bar',vals,datasets,true);
+  renderChart('notif-chart-'+suffix,{horizontal:true,stacked:true,pct:true,labels:vals,datasets:datasets});
 }
 
 /* ============== BOOT ============== */
