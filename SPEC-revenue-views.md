@@ -16,11 +16,24 @@ same `grain`/`period_start` convention as the existing analysis views (grain in
 
 ## 1. NEW — `tasks.v_order_lifetime_summary` (panel: "Time in system → assignment")
 
-**Question it answers:** how long does an order stay live before a terminal state, and at
-each survival cutoff, how many orders end up assigned / delivered. This is the true-demand
-survival curve the UI turns into a cutoff selector.
+**Framing (Vamsee, 06-Aug): an order that is never assigned is BOUND to cancel.** So the
+time-to-cancel histogram at 5s resolution IS the decay curve of the unassigned pool.
+Reading it cumulatively from a cutoff t answers: how many orders are still alive
+(= winnable) at t, and of those survivors, how many did we actually assign. The 0-5s
+spike is unwinnable junk (merchant auto-rejects / instant SLA kills); survivors past the
+cutoff are the true serviceable pool.
 
-Contract (UI reads exactly these columns):
+**Bucket scheme: 5-second intervals through the first minute** (matching
+`v_cancel_distribution`), coarser tail after, and one explicit terminal bucket for orders
+that never cancelled (assigned → delivered/still live) so cumulative survivor math
+includes them:
+
+`'0-5s','5-10s','10-15s','15-20s','20-25s','25-30s','30-35s','35-40s','40-45s','45-50s',
+'50-55s','55-60s','60-90s','90s-2m','2-5m','5m+','never cancelled (assigned/live)'`
+→ bucket_order 1..17.
+
+Contract (UI reads exactly these columns; it is bucket-agnostic — any bucket list with a
+consistent bucket_order renders, and the cutoff selector computes cumulative survivors):
 
 | column | type | notes |
 |---|---|---|
@@ -28,10 +41,10 @@ Contract (UI reads exactly these columns):
 | period_start | date | week Monday or the day |
 | dimension_type | text | 'overall' \| 'integration' \| 'city' \| 'account' |
 | dimension_value | text | 'All' for overall |
-| lifetime_bucket | text | '0-15s','15-30s','30-60s','1-2m','2-5m','5-15m','15m+' |
-| bucket_order | int | 1..7 |
-| orders | bigint | orders whose lifetime falls in this bucket |
-| assigned_orders | bigint | of those, ever reached an assigned state |
+| lifetime_bucket | text | see scheme above (bucketed on time-to-CANCEL) |
+| bucket_order | int | 1..17 |
+| orders | bigint | orders whose cancel time falls in this bucket (last bucket: never cancelled) |
+| assigned_orders | bigint | of those, ever reached an assigned state (mostly the tail + cancelled-after-assign) |
 | delivered_orders | bigint | of those, delivered |
 
 Sketch:
@@ -46,8 +59,8 @@ with base as (
     o.integration,                      -- adapt: buyer-app / integration column
     <city_derivation> as city,          -- SAME derivation as existing 'zone' dim
     o.account,                          -- adapt
-    -- lifetime = created → terminal (cancel or delivery); still-open orders: now() or exclude
-    extract(epoch from coalesce(o.cancelled_at, o.delivered_at, now()) - o.created_at) as life_s,
+    -- time-to-cancel; NULL = never cancelled (assigned/delivered/live)
+    extract(epoch from o.cancelled_at - o.created_at) as cancel_s,
     (o.order_state in ('ASSIGNED','ARRIVED','REACHED','PICKED_UP','DELIVERED')
        or o.cancelled_after_assign) as was_assigned,   -- match v_cancel_summary's definition
     (o.order_state = 'DELIVERED') as was_delivered
@@ -55,13 +68,20 @@ with base as (
 ),
 bucketed as (
   select *,
-    case when life_s < 15   then '0-15s'  when life_s < 30   then '15-30s'
-         when life_s < 60   then '30-60s' when life_s < 120  then '1-2m'
-         when life_s < 300  then '2-5m'   when life_s < 900  then '5-15m'
-         else '15m+' end as lifetime_bucket,
-    case when life_s < 15 then 1 when life_s < 30 then 2 when life_s < 60 then 3
-         when life_s < 120 then 4 when life_s < 300 then 5 when life_s < 900 then 6
-         else 7 end as bucket_order
+    case
+      when cancel_s is null then 'never cancelled (assigned/live)'
+      when cancel_s < 60  then (floor(cancel_s/5)*5)::int || '-' || (floor(cancel_s/5)*5+5)::int || 's'
+      when cancel_s < 90  then '60-90s'
+      when cancel_s < 120 then '90s-2m'
+      when cancel_s < 300 then '2-5m'
+      else '5m+' end as lifetime_bucket,
+    case
+      when cancel_s is null then 17
+      when cancel_s < 60  then floor(cancel_s/5)::int + 1
+      when cancel_s < 90  then 13
+      when cancel_s < 120 then 14
+      when cancel_s < 300 then 15
+      else 16 end as bucket_order
   from base
 )
 -- then the same (grain × dimension grouping-set) expansion pattern used by
@@ -69,6 +89,10 @@ bucketed as (
 -- count(*) as orders, count(*) filter (where was_assigned) as assigned_orders,
 -- count(*) filter (where was_delivered) as delivered_orders.
 ```
+
+Survivor math the UI does per cutoff t: survivors(t) = Σ orders in buckets ≥ t (the
+'never cancelled' bucket always counts as a survivor); assigned-of-survivors = Σ
+assigned_orders over the same range. That is the conversion ceiling per cutoff.
 
 Materialize if the raw scan is slow (all_orders is ~1.4M rows and growing) — matview +
 refresh in the hourly tick, like the weekly matviews.
