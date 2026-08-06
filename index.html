@@ -66,6 +66,8 @@
   .kpi .kpi-label{color:var(--muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:6px;}
   .kpi .kpi-val{font-size:24px;font-weight:700;line-height:1.1;}
   .kpi .kpi-sub{color:var(--muted);font-size:11px;margin-top:5px;}
+  .kpi .kpi-sub.up{color:var(--good);}
+  .kpi .kpi-sub.down{color:var(--bad);}
 
   /* Two-column panel grid */
   .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-bottom:18px;align-items:start;}
@@ -122,6 +124,18 @@
   .chart-wrap{padding:14px 16px 8px;height:250px;position:relative;}
 
   .info-strip{color:var(--muted);font-size:12px;padding:10px 14px;border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:8px;margin-bottom:18px;background:var(--panel);}
+
+  /* Funnel (master view) */
+  .funnel{padding:16px;}
+  .fstage{display:flex;align-items:center;gap:14px;margin:7px 0;}
+  .fstage .flabel{width:225px;flex:none;font-size:12.5px;color:var(--text);text-align:right;line-height:1.25;}
+  .fstage .flabel .fsub{display:block;font-size:10.5px;color:var(--muted);}
+  .fstage .fbarwrap{flex:1;min-width:0;}
+  .fstage .fbar{height:28px;border-radius:5px;min-width:3px;}
+  .fstage .fbar.pending{background:none;border:1.5px dashed var(--border);}
+  .fstage .fnum{width:290px;flex:none;font-size:12px;color:var(--muted);}
+  .fstage .fnum b{color:var(--text);font-size:14px;margin-right:8px;}
+  @media(max-width:900px){.fstage .flabel{width:130px;}.fstage .fnum{width:170px;}}
 </style>
 </head>
 <body>
@@ -192,13 +206,25 @@
     <div id="tab-orders" class="tabpanel tab-visible">
 
       <div class="kpis" id="kpis-orders">
-        <div class="kpi" id="kpi-o-orders"><div class="kpi-label">Total orders</div><div class="kpi-val">—</div><div class="kpi-sub">broadcast, selected period</div></div>
-        <div class="kpi" id="kpi-o-cancel"><div class="kpi-label">Cancelled</div><div class="kpi-val">—</div><div class="kpi-sub">% of all broadcast orders</div></div>
-        <div class="kpi" id="kpi-o-true"><div class="kpi-label">True demand</div><div class="kpi-val">—</div><div class="kpi-sub">% of cancels surviving &gt;15s</div></div>
-        <div class="kpi" id="kpi-o-notif"><div class="kpi-label">Notification coverage</div><div class="kpi-val">—</div><div class="kpi-sub">orders pinged to ≥1 rider</div></div>
+        <div class="kpi" id="kpi-o-delivered-n"><div class="kpi-label">Delivered orders</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+        <div class="kpi" id="kpi-o-winnable"><div class="kpi-label">Winnable demand</div><div class="kpi-val">—</div><div class="kpi-sub">interim proxy: &gt;15s cancels + assigned</div></div>
+        <div class="kpi" id="kpi-o-capture"><div class="kpi-label">Capture of winnable</div><div class="kpi-val">—</div><div class="kpi-sub">delivered ÷ winnable demand</div></div>
         <div class="kpi" id="kpi-o-dwell"><div class="kpi-label">Median fulfillment</div><div class="kpi-val">—</div><div class="kpi-sub">assigned → delivered</div></div>
-        <div class="kpi" id="kpi-o-delivered"><div class="kpi-label">Delivered</div><div class="kpi-val">—</div><div class="kpi-sub">% of assigned orders</div></div>
       </div>
+
+      <section class="card">
+        <div class="card-head"><h3>Order funnel</h3><span class="sub">the master view: every broadcast order → shown → accepted → fulfilled</span></div>
+        <div class="funnel" id="funnel-orders"><span class="sub" style="color:var(--muted);font-size:12px;">Loading…</span></div>
+        <details class="tbl">
+          <summary>Standardized definitions</summary>
+          <table><tbody>
+            <tr><td style="white-space:nowrap;"><b>Total orders</b></td><td style="text-align:left;white-space:normal;">Every network order broadcast to Bounce in the period (by created time). Includes orders that cancel in seconds.</td></tr>
+            <tr><td><b>Shown to ≥1 rider</b></td><td style="text-align:left;white-space:normal;">≥1 order-ping logged for the order. Measures pings actually sent, not eligibility. The ping feed can lag the order feed by a few days — check Sync status before reading the latest period.</td></tr>
+            <tr><td><b>Accepted</b></td><td style="text-align:left;white-space:normal;">A rider was assigned to the order (assignment observed in order states — same definition as the accept-rate panels).</td></tr>
+            <tr><td><b>Fulfilled</b></td><td style="text-align:left;white-space:normal;">Order reached state DELIVERED.</td></tr>
+          </tbody></table>
+        </details>
+      </section>
 
       <div class="sec-head"><h2>Fleet overview</h2><span class="sec-desc">every week on record — the scope bar above drives everything below</span></div>
 
@@ -218,13 +244,34 @@
     <div id="tab-riders" class="tabpanel">
 
       <div class="kpis" id="kpis-riders">
-        <div class="kpi" id="kpi-r-engaged"><div class="kpi-label">Riders engaged</div><div class="kpi-val">—</div><div class="kpi-sub">selected week</div></div>
-        <div class="kpi" id="kpi-r-worders"><div class="kpi-label">Riders w/ orders</div><div class="kpi-val">—</div><div class="kpi-sub">did ≥1 delivery</div></div>
-        <div class="kpi" id="kpi-r-zero"><div class="kpi-label">Zero-order riders</div><div class="kpi-val">—</div><div class="kpi-sub">% of engaged</div></div>
-        <div class="kpi" id="kpi-r-median"><div class="kpi-label">Median orders</div><div class="kpi-val">—</div><div class="kpi-sub">per engaged rider</div></div>
-        <div class="kpi" id="kpi-r-oplh"><div class="kpi-label">Orders/login-hr</div><div class="kpi-val">—</div><div class="kpi-sub">fleet productivity</div></div>
+        <div class="kpi" id="kpi-r-active"><div class="kpi-label">Active riders</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+        <div class="kpi" id="kpi-r-util"><div class="kpi-label">Utilization</div><div class="kpi-val">—</div><div class="kpi-sub">% of engaged fulfilling ≥1 order</div></div>
+        <div class="kpi" id="kpi-r-opa"><div class="kpi-label">Orders / active rider</div><div class="kpi-val">—</div><div class="kpi-sub">delivered ÷ active riders</div></div>
         <div class="kpi" id="kpi-r-accept"><div class="kpi-label">Accept rate</div><div class="kpi-val">—</div><div class="kpi-sub">pinged → assigned &amp; delivering</div></div>
       </div>
+
+      <section class="card">
+        <div class="card-head"><h3>Rider funnel</h3><span class="sub">the master view: every engaged rider → online → pinged → accepting → fulfilling</span></div>
+        <div class="filter-bar">
+          <label>Login cutoff</label>
+          <select id="rider-funnel-cutoff" onchange="updateFunnels('riders')">
+            <option value="15">≥ 15 min</option>
+            <option value="30" selected>≥ 30 min</option>
+            <option value="60">≥ 60 min</option>
+          </select>
+        </div>
+        <div class="funnel" id="funnel-riders"><span class="sub" style="color:var(--muted);font-size:12px;">Loading…</span></div>
+        <details class="tbl">
+          <summary>Standardized definitions</summary>
+          <table><tbody>
+            <tr><td style="white-space:nowrap;"><b>Total riders</b></td><td style="text-align:left;white-space:normal;">Riders engaged: any session or ping recorded in the period.</td></tr>
+            <tr><td><b>Online ≥ x min</b></td><td style="text-align:left;white-space:normal;">Total online duration in the period ≥ the cutoff (paired online/offline events from rider sessions). Cutoff selectable above.</td></tr>
+            <tr><td><b>Got ≥1 ping</b></td><td style="text-align:left;white-space:normal;">Received at least one order ping. The ping feed can lag the order feed by a few days — check Sync status.</td></tr>
+            <tr><td><b>Accepted ≥1</b></td><td style="text-align:left;white-space:normal;">Accepted at least one order (pinged → assigned &amp; delivering — same definition as the accept-rate panels).</td></tr>
+            <tr><td><b>Fulfilled ≥1</b></td><td style="text-align:left;white-space:normal;">Delivered at least one order in the period.</td></tr>
+          </tbody></table>
+        </details>
+      </section>
 
       <div class="info-strip" id="engagement-day-note" style="display:none;">
         Rider-engagement panels (new vs. old, login-hour split, distance split) are only computed at week grain today —
@@ -396,7 +443,7 @@ function refreshActiveTab(){
     document.getElementById('engagement-day-note').style.display=wk?'none':'';
   }
   var stamp=grain+'|'+period;
-  if(tabStamp[activeTab]===stamp){updateKpis(activeTab);return;}
+  if(tabStamp[activeTab]===stamp){updateKpis(activeTab);updateFunnels(activeTab);return;}
   tabStamp[activeTab]=stamp;
   if(activeTab==='riders'&&grain==='week'){
     loadTenure(selectedWeek);loadLoginBuckets(selectedWeek);loadDistanceBuckets(selectedWeek);
@@ -573,7 +620,7 @@ var ORDER_SECTIONS=[
       dimTypes:[['overall','Overall'],['integration','By integration'],['city','By city'],['account','By account']],
       note:'Pick a cutoff: orders surviving past it are the pool we can realistically serve.'}
   ]},
-  {title:'Notifications',desc:'riders pinged per order · measures pings sent, not true eligibility · window 17–27 Jul only',panels:[
+  {title:'Notifications',desc:'riders pinged per order · measures pings sent, not true eligibility',panels:[
     {key:'notif',view:'v_notification_coverage_summary',title:'Notification coverage',sub:'Distinct riders pinged per order',span:2,
       dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By city'],['hour_of_day','By hour of day']],
       note:'Hover a segment for exact counts.'}
@@ -588,8 +635,10 @@ var ORDER_SECTIONS=[
       dimTypes:[['overall','Overall'],['integration','By integration'],['zone','By city']]}
   ]}
 ];
+/* data-only loader (no card): feeds the rider funnel hero */
+var HIDDEN_PANELS={orders:[],riders:[{key:'rider-funnel',view:'v_rider_funnel',hidden:true}]};
 var RIDER_SECTIONS=[
-  {title:'Dispatch & acceptance',desc:'whether pinged riders take the job · ping feed live 17–27 Jul only',panels:[
+  {title:'Dispatch & acceptance',desc:'whether pinged riders take the job',panels:[
     {key:'accept-factors',view:'v_accept_factors_summary',title:'Rider accept/reject factors',sub:'Accept rate = pinged rider ends up assigned & delivering',
       dimTypes:[['pickup_distance','Pickup distance'],['drop_distance','Drop distance'],['payout','Payout (₹)'],['account','Account'],['integration','Integration'],['hour_of_day','Hour of day'],['rider_segment','Rider segment (loyal ≥14d tenure & ≥40% active days)']]},
     {key:'accept-seghour',view:'v_accept_segment_hour',title:'Accept rate: rider segment × hour of day',sub:'Loyal/regular vs. parttimer vs. new riders'},
@@ -601,8 +650,8 @@ var RIDER_SECTIONS=[
 var ANALYSIS_PANELS=[];
 ORDER_SECTIONS.concat(RIDER_SECTIONS).forEach(function(s){s.panels.forEach(function(p){ANALYSIS_PANELS.push(p);});});
 var TAB_PANELS={
-  orders:ORDER_SECTIONS.reduce(function(a,s){return a.concat(s.panels);},[]),
-  riders:RIDER_SECTIONS.reduce(function(a,s){return a.concat(s.panels);},[])
+  orders:ORDER_SECTIONS.reduce(function(a,s){return a.concat(s.panels);},[]).concat(HIDDEN_PANELS.orders),
+  riders:RIDER_SECTIONS.reduce(function(a,s){return a.concat(s.panels);},[]).concat(HIDDEN_PANELS.riders)
 };
 
 function buildAnalysisPanelsInto(containerId,suffix,sections){
@@ -661,11 +710,13 @@ function onDimTypeChange(key,suffix){
 async function loadAllAnalysisPanels(grain,period,tab){
   await Promise.all(TAB_PANELS[tab].map(function(p){return loadPanel(p,grain,period,tab);}));
   updateKpis(tab);
+  updateFunnels(tab);
 }
 
 async function loadPanel(panel,grain,period,suffix){
   var {data,error}=await sbTasks.from(panel.view).select('*').eq('grain',grain).eq('period_start',period);
   analysisCache[suffix][panel.key]=error?[]:(data||[]);
+  if(panel.hidden)return;
   if(panel.dimTypes){
     var dtSel=document.getElementById(panel.key+'-dt-'+suffix);
     var prev=dtSel.value;
@@ -697,36 +748,127 @@ function setEmpty(key,suffix,cols,msg){
   renderChart(key+'-chart-'+suffix,{labels:[],datasets:[]});
 }
 
-/* ============== KPI STRIPS ============== */
-function setKpi(id,val){
-  var el=document.getElementById(id);
-  if(el)el.querySelector('.kpi-val').textContent=val;
+/* ============== NORTH-STAR KPIs + FUNNELS ==============
+   KPI order = revenue priority: how much delivered (and trend) → size of the
+   winnable prize → our capture of it → experience guardrail. */
+var deliveredByWeek={};   /* week_start_mon -> delivered order count (for WoW deltas) */
+async function loadDeliveredTrend(){
+  var {data,error}=await sbTasks.from('v_fulfillment_outcome_mix').select('period_start,order_count')
+    .eq('grain','week').eq('dimension_type','overall').eq('outcome','delivered');
+  if(!error&&data)data.forEach(function(r){deliveredByWeek[r.period_start]=Number(r.order_count)||0;});
 }
+function prevWeekOf(w){
+  var i=weeklyRows.findIndex(function(r){return r.week_start_mon===w;});
+  return (i>=0&&i+1<weeklyRows.length)?weeklyRows[i+1].week_start_mon:null;
+}
+function setKpi(id,val,deltaPct){
+  var el=document.getElementById(id);
+  if(!el)return;
+  el.querySelector('.kpi-val').textContent=val;
+  if(deltaPct!==undefined){
+    var sub=el.querySelector('.kpi-sub');
+    if(deltaPct===null){sub.textContent='WoW: —';sub.className='kpi-sub';}
+    else{
+      var up=deltaPct>=0;
+      sub.textContent=(up?'▲ ':'▼ ')+Math.abs(deltaPct).toFixed(1)+'% WoW';
+      sub.className='kpi-sub '+(up?'up':'down');
+    }
+  }
+}
+function pctDelta(cur,prev){return (prev&&prev>0&&cur!==null&&cur!==undefined)?(cur-prev)/prev*100:null;}
+
 function updateKpis(tab){
   var cache=analysisCache[tab]||{};
   if(tab==='orders'){
     var cs=(cache['cancel-summary']||[]).find(function(r){return r.dimension_type==='overall';});
-    setKpi('kpi-o-orders',cs?nz(cs.total_orders):'—');
-    setKpi('kpi-o-cancel',cs?nz(cs.pct_cancelled)+'%':'—');
-    setKpi('kpi-o-true',cs?nz(cs.pct_of_cancels_gt15s)+'%':'—');
-    var nf=(cache['notif']||[]).filter(function(r){return r.dimension_type==='overall';});
-    var zero=nf.find(function(r){return /^0 riders/.test(r.coverage_bucket);});
-    setKpi('kpi-o-notif',nf.length?(100-(zero?Number(zero.pct_of_dim):0)).toFixed(1)+'%':'—');
+    var om=(cache['outcome-mix']||[]).filter(function(r){return r.dimension_type==='overall';});
+    var delivered=om.find(function(r){return r.outcome==='delivered';});
+    var deliveredN=delivered?Number(delivered.order_count):null;
+    var assignedN=om.length?om.reduce(function(s,r){return s+(Number(r.order_count)||0);},0):null;
+    var prevW=grain==='week'?prevWeekOf(selectedWeek):null;
+    setKpi('kpi-o-delivered-n',deliveredN!==null?nz(deliveredN):'—',
+      grain==='week'?pctDelta(deliveredN,prevW?deliveredByWeek[prevW]:null):null);
+    /* winnable = cancels that survived >15s + everything assigned (interim proxy
+       until v_order_lifetime_summary gives the survival-cutoff number) */
+    var winnable=(cs&&assignedN!==null)?Math.round(Number(cs.cancelled_orders)*Number(cs.pct_of_cancels_gt15s)/100)+assignedN:null;
+    setKpi('kpi-o-winnable',winnable!==null?nz(winnable):'—');
+    setKpi('kpi-o-capture',(winnable&&deliveredN!==null)?(deliveredN/winnable*100).toFixed(2)+'%':'—');
     var dw=(cache['dwell']||[]).find(function(r){return r.dimension_type==='overall';});
     setKpi('kpi-o-dwell',dw&&dw.median_min_total!==null?nz(dw.median_min_total)+' min':'—');
-    var om=(cache['outcome-mix']||[]).find(function(r){return r.dimension_type==='overall'&&r.outcome==='delivered';});
-    setKpi('kpi-o-delivered',om?nz(om.pct_of_dim)+'%':'—');
   } else {
     var wr=grain==='week'?weeklyRows.find(function(r){return r.week_start_mon===selectedWeek;}):null;
-    setKpi('kpi-r-engaged',wr?nz(wr.riders_engaged):'—');
-    setKpi('kpi-r-worders',wr?nz(wr.riders_with_orders):'—');
-    setKpi('kpi-r-zero',wr?nz(wr.pct_zero_orders_among_engaged)+'%':'—');
-    setKpi('kpi-r-median',wr?nz(wr.median_orders_among_engaged):'—');
-    setKpi('kpi-r-oplh',wr?nz(wr.orders_per_login_hour):'—');
+    var prevR=grain==='week'?weeklyRows[weeklyRows.findIndex(function(r){return r.week_start_mon===selectedWeek;})+1]:null;
+    setKpi('kpi-r-active',wr?nz(wr.riders_with_orders):'—',
+      grain==='week'?pctDelta(wr?Number(wr.riders_with_orders):null,prevR?Number(prevR.riders_with_orders):null):null);
+    setKpi('kpi-r-util',wr&&Number(wr.riders_engaged)>0?(Number(wr.riders_with_orders)/Number(wr.riders_engaged)*100).toFixed(1)+'%':'—');
+    var delW=grain==='week'?deliveredByWeek[selectedWeek]:null;
+    setKpi('kpi-r-opa',(delW&&wr&&Number(wr.riders_with_orders)>0)?(delW/Number(wr.riders_with_orders)).toFixed(1):'—');
     var af=(cache['accept-factors']||[]).filter(function(r){return r.dimension_type==='integration';});
     var pings=af.reduce(function(s,r){return s+(r.total_pings||0);},0);
     var acc=af.reduce(function(s,r){return s+(r.accepted_count||0);},0);
     setKpi('kpi-r-accept',pings?(acc/pings*100).toFixed(1)+'%':'—');
+  }
+}
+
+/* ---- funnel rendering ---- */
+var FUNNEL_COLORS_4=[C.accent,C.cyan,C.purple,C.good];
+var FUNNEL_COLORS_5=[C.accent,C.cyan,C.purple,C.pink,C.good];
+function renderFunnel(containerId,stages){
+  var el=document.getElementById(containerId);
+  if(!el)return;
+  var max=null;
+  stages.forEach(function(s){if(s.value!==null&&s.value!==undefined&&(max===null||s.value>max))max=s.value;});
+  var total=stages.length&&stages[0].value?stages[0].value:null;
+  el.innerHTML=stages.map(function(s,i){
+    var prev=i>0?stages[i-1].value:null;
+    var num;
+    if(s.value===null||s.value===undefined){
+      num='<span style="color:var(--muted)">awaiting data</span>';
+    } else {
+      num='<b>'+nz(s.value)+'</b>';
+      if(prev)num+=(s.value/prev*100).toFixed(1)+'% of prev';
+      if(total&&i>0)num+=' · '+(s.value/total*100).toFixed(1)+'% of total';
+    }
+    var bar;
+    if(s.value===null||s.value===undefined){
+      bar='<div class="fbar pending" style="width:40%"></div>';
+    } else {
+      var w=max?Math.max(0.3,s.value/max*100):0.3;
+      bar='<div class="fbar" style="width:'+w+'%;background:'+s.color+'"></div>';
+    }
+    return '<div class="fstage"><div class="flabel">'+esc(s.label)+(s.sub?'<span class="fsub">'+esc(s.sub)+'</span>':'')+'</div>'+
+      '<div class="fbarwrap">'+bar+'</div><div class="fnum">'+num+'</div></div>';
+  }).join('');
+}
+
+function updateFunnels(tab){
+  var cache=analysisCache[tab]||{};
+  if(tab==='orders'){
+    var cs=(cache['cancel-summary']||[]).find(function(r){return r.dimension_type==='overall';});
+    var nf=(cache['notif']||[]).filter(function(r){return r.dimension_type==='overall';});
+    var om=(cache['outcome-mix']||[]).filter(function(r){return r.dimension_type==='overall';});
+    var total=cs?Number(cs.total_orders):null;
+    var pinged=nf.length?nf.reduce(function(s,r){return s+(/^0 riders/.test(r.coverage_bucket)?0:Number(r.order_count)||0);},0):null;
+    var assigned=om.length?om.reduce(function(s,r){return s+(Number(r.order_count)||0);},0):null;
+    var deliveredR=om.find(function(r){return r.outcome==='delivered';});
+    renderFunnel('funnel-orders',[
+      {label:'Total orders',sub:'broadcast to Bounce',value:total,color:FUNNEL_COLORS_4[0]},
+      {label:'Shown to ≥1 rider',sub:'pings sent, not eligibility',value:pinged,color:FUNNEL_COLORS_4[1]},
+      {label:'Accepted',sub:'rider assigned',value:assigned,color:FUNNEL_COLORS_4[2]},
+      {label:'Fulfilled',sub:'delivered',value:deliveredR?Number(deliveredR.order_count):null,color:FUNNEL_COLORS_4[3]}
+    ]);
+  } else {
+    var cutSel=document.getElementById('rider-funnel-cutoff');
+    var cut=cutSel?Number(cutSel.value):30;
+    var rf=(cache['rider-funnel']||[]).find(function(r){return Number(r.login_cutoff_min)===cut;});
+    var wr=grain==='week'?weeklyRows.find(function(r){return r.week_start_mon===selectedWeek;}):null;
+    renderFunnel('funnel-riders',[
+      {label:'Total riders',sub:'engaged (session or ping)',value:rf?Number(rf.riders_total):(wr?Number(wr.riders_engaged):null),color:FUNNEL_COLORS_5[0]},
+      {label:'Online ≥ '+cut+' min',sub:'from rider sessions',value:rf?Number(rf.riders_logged):null,color:FUNNEL_COLORS_5[1]},
+      {label:'Got ≥1 ping',sub:'order pings received',value:rf?Number(rf.riders_pinged):null,color:FUNNEL_COLORS_5[2]},
+      {label:'Accepted ≥1',sub:'assigned & delivering',value:rf?Number(rf.riders_accepted):null,color:FUNNEL_COLORS_5[3]},
+      {label:'Fulfilled ≥1',sub:'delivered ≥1 order',value:rf?Number(rf.riders_delivered):(wr?Number(wr.riders_with_orders):null),color:FUNNEL_COLORS_5[4]}
+    ]);
   }
 }
 
@@ -985,7 +1127,7 @@ async function loadAllDashboardData(){
   loadSyncStatus();
   tabBuilt.orders=true;
   buildAnalysisPanelsInto('analysis-panels-orders','orders',ORDER_SECTIONS);
-  await Promise.all([loadWeekly(),loadDayList()]);
+  await Promise.all([loadWeekly(),loadDayList(),loadDeliveredTrend()]);
   refreshActiveTab();
 }
 

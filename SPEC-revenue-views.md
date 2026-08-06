@@ -14,7 +14,11 @@ same `grain`/`period_start` convention as the existing analysis views (grain in
 
 ---
 
-## 1. NEW — `tasks.v_order_lifetime_summary` (panel: "Time in system → assignment")
+## 1. ✅ LIVE (06-Aug, Cowork) — `tasks.v_order_lifetime_summary`
+
+Built to the refined framing below, wired into the nightly refresh. Live data confirms the
+bimodal shape: a 55-60s spike of ~190-290k orders/week right before the terminal bucket,
+which itself runs 82-89% assigned.
 
 **Framing (Vamsee, 06-Aug): an order that is never assigned is BOUND to cancel.** So the
 time-to-cancel histogram at 5s resolution IS the decay curve of the unassigned pool.
@@ -97,7 +101,10 @@ assigned_orders over the same range. That is the conversion ceiling per cutoff.
 Materialize if the raw scan is slow (all_orders is ~1.4M rows and growing) — matview +
 refresh in the hourly tick, like the weekly matviews.
 
-## 2. NEW — `tasks.v_rider_login_summary` (panel: "Login time → acceptance")
+## 2. ✅ LIVE (06-Aug, Cowork) — `tasks.v_rider_login_summary`
+
+Built on mv_rider_daily login-hours pairing + the v_accept_factors_summary accept
+definition. Live read: 6h+ login rider-days convert to accepts ~95% vs ~3% for <15-min days.
 
 **Question:** how long do riders stay online per day, and does longer login convert to
 accepted orders. UI shows rider-days per login-duration bucket vs. rider-days with ≥1
@@ -122,16 +129,16 @@ from `tasks.rider_order_pings` using the SAME "accepted" definition as
 `v_accept_factors_summary` (pinged rider ends up assigned & delivering). City for a rider-day:
 modal city of their pings/orders that day, else 'Other'. Same grouping-set expansion.
 
-**Caveat to carry into the panel sub-line once live:** rider_sessions and the ping feeds
-stalled upstream on 27 Jul — this panel is only trustworthy for the 17–27 Jul window until
-the Metabase temp views resume.
+**Caveat history:** the old "stalled since 27 Jul" warning is RESOLVED (pipeline bug fixed
+and backfilled 06-Aug). The remaining boundary is ordinary Metabase-source lag (~few days);
+the UI now says "check Sync status" instead of hardcoding dates.
 
-## 3. CHANGE — account dimension → top 10 by volume (all views that expose it)
+## 3. ✅ DONE (06-Aug, Cowork) — account dimension → top 10 by volume
 
-Today `dimension_type='account'` is ProSquad-only (labelled so in the old UI). Wanted:
-**top 10 accounts by order volume in the period across ALL accounts**, remainder rolled
-into `'Other'`. Apply consistently to: `v_cancel_distribution`, `v_accept_factors_summary`,
-`v_fulfillment_dwell_summary`, and the new `v_order_lifetime_summary`.
+Applied to all 4 account-exposing views (`v_cancel_distribution`, `v_accept_factors_summary`,
+`v_fulfillment_dwell_summary`, `v_order_lifetime_summary`). The first two were quietly
+ProSquad-only before; real accounts (bigbasket, instamart, zepto, apollo, …) now appear,
+remainder folds into 'Other' per period.
 
 Pattern:
 
@@ -149,7 +156,79 @@ into 'Other' the next. That's intended (revenue lens: who matters *now*).
 
 The UI already labels the cut plainly "By account" — no UI change needed when this lands.
 
-## 4. PHASE 2 — global City × Integration × Account filters (bigger change, don't rush)
+## 4. NEW (pending) — `tasks.v_rider_funnel` (Riders tab hero funnel)
+
+The v6 UI renders a 5-stage rider funnel with a login-cutoff selector (15/30/60 min).
+Stages 1 and 5 fall back to `v_weekly_summary` at week grain; stages 2-4 show "awaiting
+data" until this view exists.
+
+Contract — one row per (grain, period_start, login_cutoff_min):
+
+| column | type | notes |
+|---|---|---|
+| grain / period_start | | week + day |
+| login_cutoff_min | int | 15, 30, 60 |
+| riders_total | bigint | engaged: any session or ping in period |
+| riders_logged | bigint | total online duration ≥ cutoff (mv_rider_daily pairing) |
+| riders_pinged | bigint | received ≥1 order ping (NOT conditioned on cutoff) |
+| riders_accepted | bigint | accepted ≥1 (same definition as v_accept_factors_summary) |
+| riders_delivered | bigint | delivered ≥1 order |
+
+Note: only stage 2 is conditioned on the cutoff; stages 3-5 are unconditional rider counts
+(matches the standardized definitions shown in the UI). Tiny output (3 rows per period per
+grain) — plain view or matview, either is fine.
+
+## 6. Disk growth — checks + retention design (Vamsee, 06-Aug: "disk space is increasing")
+
+The `v_*` views are NOT the consumer: plain views cost 0 bytes; the matviews hold only
+aggregate rows (thousands per period). The growth is the RAW mirror tables — `all_orders`
+above all (~9k rows/hr at peak, unbounded since the id-sync went live), plus upsert bloat
+(all_orders/delivered_orders use ON CONFLICT DO UPDATE → dead tuples).
+
+Diagnose first (run in Supabase SQL editor):
+
+```sql
+select relname,
+       pg_size_pretty(pg_total_relation_size(c.oid)) as total,
+       pg_size_pretty(pg_relation_size(c.oid)) as heap,
+       n_live_tup, n_dead_tup
+from pg_class c join pg_stat_user_tables t on t.relid=c.oid
+where t.schemaname='tasks' order by pg_total_relation_size(c.oid) desc;
+```
+
+Levers, in order of impact:
+1. **Retention prune on raw tables** — dashboards read only the aggregate views, so raw
+   rows older than the re-derivation window are dead weight. Keep a rolling ~90 days of
+   `all_orders` / `rider_order_pings` / `daily_rider_pings`; aggregates (matviews) keep
+   full history. Monthly pg_cron: `delete from tasks.all_orders where created_at < now()-interval '90 days'`
+   followed by autovacuum (or pg_repack if bloat is bad). daily_rider_pings is likely the
+   sneaky-big one (205k rows for just 15-20 Jul backfill).
+2. **Vacuum/bloat check** — if n_dead_tup is a large share on the upsert tables, schedule
+   `vacuum (analyze)`; consider lowering autovacuum_vacuum_scale_factor for all_orders.
+3. **Column prune** — the mirrors copy every Metabase column; wide text columns nobody
+   reads (raw payload/address fields) can be dropped from the target tables + adapter.
+4. Do NOT materialize anything at raw grain (the new views aggregate before storing —
+   keep it that way).
+
+## 7. Revenue dashboard roadmap (rethink, 06-Aug — what a revenue owner still can't see)
+
+Current Pulse answers volume + conversion. Missing, in priority order:
+
+1. **Money view — unit economics** (biggest gap): net take per delivered order,
+   contribution per rider-day, PnL by partner. Data exists in ProRouting cards
+   1624 (EPH/OPH), 1629/1630/1635 (partner/rider/rider×partner PnL) — needs a 6th
+   pipeline source + a v_unit_economics view. Without this, capture-% growth can be
+   margin-negative and we would not see it.
+2. **Win-rate vs network**: our deliveries ÷ network-winnable in our zones (pending the
+   TSP ask on zero-LSP-assignment share). This is the pilot's gate metric (target ≥10%).
+3. **Rider cohort retention**: D7/D30 active-rider retention by signup cohort, from
+   sessions/pings history. Supply-building spend is blind without it.
+4. **Zone capture vs deployment plan**: delivered ÷ demand per top-30% zone
+   (deployment_plan_5week.md) — turns the shortlist tool's plan into a scoreboard.
+5. **Incentive efficiency** (once incentives launch): ₹ incentive per incremental
+   delivered order, by cohort.
+
+## 5. PHASE 2 — global City × Integration × Account filters (bigger change, don't rush)
 
 Vamsee wants page-level filters (City, Integration, Account) that scope EVERY panel
 simultaneously. Current views pre-aggregate one dimension at a time, so cross-filtering
@@ -167,7 +246,7 @@ the UI's current queries keep working: `eq('city','All')` etc.). Cardinality sta
 Materialize + refresh hourly. UI work (filter bar in the scope bar, wiring every panel's
 query) lands after the views exist — don't build the UI first.
 
-## 5. Reconciliation note (analyst comparison, 04-Aug)
+## 8. Reconciliation note (analyst comparison, 04-Aug)
 
 The analyst's "riders pinged per tracking ID" table (285,442 IDs, 80.3% → 1 rider) is
 conditional on ≥1 ping and counts tracking IDs; Pulse's notification coverage is per order
