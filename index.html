@@ -616,7 +616,7 @@ var ORDER_SECTIONS=[
     {key:'cancel-reasons',view:'v_cancel_reason_by_bucket',title:'Cancellation reasons by timing bucket',sub:'Top reason per bucket · full list in the data table',
       dimTypes:[['overall','Overall'],['integration','By integration']],
       note:'Hover a bar for the full reason text.'},
-    {key:'order-lifetime',view:'v_order_lifetime_summary',title:'Time in system → assignment',sub:'How long orders stay live before a terminal state, and how many get a rider',span:2,cutoff:true,
+    {key:'order-lifetime',view:'v_order_lifetime_summary',title:'Time in system → outcome',sub:'Per 5s bucket: cancelled (never assigned) vs assigned→cancelled vs delivered',span:2,cutoff:true,modes:true,
       dimTypes:[['overall','Overall'],['integration','By integration'],['city','By city'],['account','By account']],
       note:'Pick a cutoff: orders surviving past it are the pool we can realistically serve.'}
   ]},
@@ -678,6 +678,11 @@ function buildAnalysisPanelsInto(containerId,suffix,sections){
         if(p.cutoff){
           filterHtml+='<label>Cutoff</label>'+
             '<select id="'+p.key+'-cutoff-'+suffix+'" onchange="renderPanel(\''+p.key+'\',\''+suffix+'\')"></select>';
+        }
+        if(p.modes){
+          filterHtml+='<label>View</label>'+
+            '<select id="'+p.key+'-mode-'+suffix+'" onchange="renderPanel(\''+p.key+'\',\''+suffix+'\')">'+
+            '<option value="count">Count</option><option value="pct">% of bucket</option></select>';
         }
         filterHtml+='</div>';
       }
@@ -980,14 +985,26 @@ function renderOrderLifetime(rows,suffix){
   var dv=document.getElementById('order-lifetime-dv-'+suffix).value||'All';
   var f=rows.filter(function(r){return r.dimension_type===dt&&r.dimension_value===dv;}).sort(function(a,b){return a.bucket_order-b.bucket_order;});
   var thead=document.getElementById('order-lifetime-thead-'+suffix);
-  thead.innerHTML='<tr><th>Time in system</th><th>Orders</th><th>Assigned</th><th>Delivered</th></tr>';
+  thead.innerHTML='<tr><th>Time bucket</th><th>Total</th><th>Cancelled, never assigned</th><th>%</th><th>Assigned → cancelled</th><th>%</th><th>Delivered</th><th>%</th></tr>';
   var tbody=document.getElementById('order-lifetime-tbody-'+suffix);
   var note=document.getElementById('order-lifetime-note-'+suffix);
   if(!f.length){
     if(note)note.textContent='Awaiting data — needs tasks.v_order_lifetime_summary (see SPEC-revenue-views.md).';
-    return setEmpty('order-lifetime',suffix,4);
+    return setEmpty('order-lifetime',suffix,8);
   }
-  tbody.innerHTML=f.map(function(r){return '<tr><td>'+esc(r.lifetime_bucket)+'</td><td>'+nz(r.orders)+'</td><td>'+nz(r.assigned_orders)+'</td><td>'+nz(r.delivered_orders)+'</td></tr>';}).join('');
+  /* three-way outcome split per bucket:
+     a = never assigned (cancelled in buckets 1-16; live/unassigned in the terminal bucket)
+     b = assigned but not delivered (assigned→cancelled in 1-16; assigned in-progress in terminal)
+     c = delivered */
+  var A=[],B=[],Cc=[],T=[];
+  f.forEach(function(r){
+    var tot=Number(r.orders)||0,asg=Number(r.assigned_orders)||0,del=Number(r.delivered_orders)||0;
+    T.push(tot);A.push(Math.max(0,tot-asg));B.push(Math.max(0,asg-del));Cc.push(del);
+  });
+  function pb(v,i){return T[i]?(v/T[i]*100).toFixed(1)+'%':'—';}
+  tbody.innerHTML=f.map(function(r,i){
+    return '<tr><td>'+esc(r.lifetime_bucket)+'</td><td>'+nz(T[i])+'</td><td>'+nz(A[i])+'</td><td>'+pb(A[i],i)+'</td><td>'+nz(B[i])+'</td><td>'+pb(B[i],i)+'</td><td>'+nz(Cc[i])+'</td><td>'+pb(Cc[i],i)+'</td></tr>';
+  }).join('');
   var cSel=document.getElementById('order-lifetime-cutoff-'+suffix);
   var prev=cSel.value;
   populateSelect(cSel,f.map(function(r,i){return [String(i),cutoffLabel(r.lifetime_bucket,i)];}));
@@ -995,16 +1012,28 @@ function renderOrderLifetime(rows,suffix){
   var cut=Number(cSel.value);
   var total=0,alive=0,asg=0,del=0;
   f.forEach(function(r,i){
-    total+=Number(r.orders)||0;
-    if(i>=cut){alive+=Number(r.orders)||0;asg+=Number(r.assigned_orders)||0;del+=Number(r.delivered_orders)||0;}
+    total+=T[i];
+    if(i>=cut){alive+=T[i];asg+=Number(r.assigned_orders)||0;del+=Cc[i];}
   });
   if(note)note.textContent='Surviving '+cutoffLabel(f[cut].lifetime_bucket,cut)+': '+nz(alive)+' of '+nz(total)+' orders ('+(total?(alive/total*100).toFixed(1):0)+'%) · assigned '+nz(asg)+' ('+(alive?(asg/alive*100).toFixed(1):0)+'% of surviving) · delivered '+nz(del)+'.';
-  renderChart('order-lifetime-chart-'+suffix,{tall:true,
+  var mSel=document.getElementById('order-lifetime-mode-'+suffix);
+  var mode=mSel?mSel.value:'count';
+  var SERIES=[
+    {label:'Cancelled, never assigned',raw:A,full:'rgba(240,85,75,.9)',dim:'rgba(240,85,75,.32)'},
+    {label:'Assigned → cancelled',raw:B,full:'rgba(245,166,35,.9)',dim:'rgba(245,166,35,.32)'},
+    {label:'Delivered',raw:Cc,full:'rgba(62,207,142,.9)',dim:'rgba(62,207,142,.32)'}
+  ];
+  renderChart('order-lifetime-chart-'+suffix,{tall:true,stacked:true,pct:mode==='pct',
     labels:f.map(function(r){return r.lifetime_bucket;}),
-    datasets:[
-      {label:'Orders',data:f.map(function(r){return r.orders;}),backgroundColor:f.map(function(r,i){return i<cut?BELOW_CUTOFF:C.accent;})},
-      {label:'Assigned',minBarLength:2,data:f.map(function(r){return r.assigned_orders;}),backgroundColor:C.good}
-    ]});
+    datasets:SERIES.map(function(s){
+      return {label:s.label,minBarLength:2,
+        data:s.raw.map(function(v,i){return mode==='pct'?(T[i]?v/T[i]*100:0):v;}),
+        backgroundColor:s.raw.map(function(v,i){return i<cut?s.dim:s.full;})};
+    }),
+    tooltipLabel:function(ctx){
+      var i=ctx.dataIndex,s=SERIES[ctx.datasetIndex];
+      return s.label+': '+nz(s.raw[i])+' ('+pb(s.raw[i],i)+' of bucket)';
+    }});
 }
 
 /* --- accept-factors: bucket dims in natural order, entity dims by volume --- */
