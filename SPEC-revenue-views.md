@@ -253,3 +253,93 @@ conditional on ≥1 ping and counts tracking IDs; Pulse's notification coverage 
 over ALL broadcast orders (zero bucket visible). When comparing: Pulse's equivalent
 conditional share = bucket % ÷ (100 − '0 riders' %). Ask the analyst for the share of
 order IDs with NO tracking ID — that's Pulse's red bucket in their source.
+
+## 9. NEW (pending) — `tasks.v_rider_lifecycle` (Riders tab, Lifecycle states panel)
+
+Standardized states (signed off by Vamsee 06-Aug — **Active = delivered ≥1 in last 7d**):
+
+| state | definition |
+|---|---|
+| new | first session ≤14d ago, no delivery yet |
+| active | delivered ≥1 in the 7d window |
+| idle-engaged | online ≥30 min in window, 0 deliveries |
+| at-risk | was active in weeks 2-4, 0 deliveries in window |
+| churned | no login for 21+ days |
+| resurrected | delivered in window after being at-risk/churned last week |
+
+Contract — transition pairs per week (INCLUDE same-state rows so end-of-week stocks =
+sum(riders) grouped by to_state):
+
+| column | type |
+|---|---|
+| grain / period_start | 'week' (day optional later) |
+| from_state | text (state last week; 'new' for first-appearance) |
+| to_state | text |
+| riders | bigint |
+
+Sketch: classify each rider per week from mv_rider_daily aggregates (deliveries, login
+minutes, first_seen, last_login), lag one week per rider, count pairs. UI renders stocks
+as a horizontal bar (semantic colors) + the transition matrix behind the data toggle.
+
+## 10. NEW (pending) — `tasks.v_call_list` + `tasks.call_log` (re-engagement calling)
+
+Purpose: ranked weekly list for the calling team (capacity ~50-100 calls/day → ~250-500/wk)
+AND the "why aren't they coming" data-collection instrument via logged dispositions.
+
+### v_call_list — regenerated weekly (grain='week', period_start = current week)
+
+| column | notes |
+|---|---|
+| tier | 'T1 lapsed loyal' \| 'T2 declining' \| 'T3 online-but-idle' \| 'T4 never-activated' |
+| rank | within tier (see ranking below) |
+| rider_username | join key; **phones stay in ProRouting KYC (card 1650) — join at export, never stored here** |
+| city | modal city of rider's activity |
+| call_batch | 1 or 2 — RANDOMIZED within tier (see design note) |
+| last_delivery_date | |
+| deliveries_w2_4 | deliveries in trailing weeks 2-4 (prior volume) |
+| deliveries_last7 | |
+| login_hours_last7 | |
+
+Tier logic (from mv_rider_daily; window anchored to current_date):
+- **T1 lapsed loyal**: deliveries_w2_4 ≥ p75 of riders-with-deliveries AND deliveries_last7 = 0.
+  Rank by deliveries_w2_4 desc (biggest win-back first).
+- **T2 declining**: deliveries_last7 > 0 AND deliveries_last7 < 0.5 × (deliveries_w2_4 / 3).
+  Rank by absolute drop desc. Call BEFORE they lapse.
+- **T3 online-but-idle**: login_hours_last7 ≥ 2 AND deliveries_last7 = 0 AND not T1.
+  Rank by login hours desc — these riders are reachable in-app too; and cross-check the
+  ping-starvation metric first (online ≥2h, 0 pings, by zone): if WE never pinged them,
+  that's a dispatch fix, not a call.
+- **T4 never-activated**: first_seen ≤ 14d ago AND lifetime deliveries = 0.
+  Rank by recency of last login. Activation script, not win-back.
+
+### call_batch — randomized rollout INSTEAD of a held-out control
+
+Vamsee's instinct ("use not-connected calls as the no-call group") has a selection-bias
+trap: non-connection correlates with churn itself (dead numbers, left platform), so
+connected-vs-not-connected overstates lift. Design that still calls everyone:
+`call_batch = 1 + (hashtext(rider_username) % 2)` per tier — team calls batch 1 in week 1,
+batch 2 in week 2. During week 1, batch 2 is a clean randomized control; by week 2 everyone
+has been called. Report reactivation (delivered ≥1 within 14d of call) as batch1-wk1 vs
+batch2-wk1. Track not-connected separately as a REACHABILITY metric, not a control.
+
+### call_log — dispositions (the "why" data)
+
+```sql
+create table tasks.call_log (
+  id bigserial primary key,
+  called_at timestamptz not null default now(),
+  rider_username text not null,
+  tier text not null,
+  call_batch int,
+  connected boolean not null,
+  reason_code text check (reason_code in
+    ('earnings_low','moved_platform','no_pings_zone','payout_issue',
+     'vehicle_issue','app_issue','personal','other')),
+  notes text,
+  agent text
+);
+-- RLS: member read; member insert (calling team gets Pulse accounts).
+```
+
+Reason-code distribution feeds back into Pulse later (which churn causes dominate → which
+lever to pull: earnings floor vs zone reassignment vs payout ops vs dispatch fix).

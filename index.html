@@ -638,6 +638,12 @@ var ORDER_SECTIONS=[
 /* data-only loader (no card): feeds the rider funnel hero */
 var HIDDEN_PANELS={orders:[],riders:[{key:'rider-funnel',view:'v_rider_funnel',hidden:true}]};
 var RIDER_SECTIONS=[
+  {title:'Lifecycle & retention',desc:'Active = delivered ≥1 in 7d · states, week-over-week transitions, and who to call',panels:[
+    {key:'lifecycle',view:'v_rider_lifecycle',title:'Lifecycle states',sub:'End-of-week riders per state · transition matrix in the data table',span:2,
+      note:'States: New (≤14d, no delivery) · Active (delivered ≥1 in 7d) · Idle-engaged (online ≥30m, 0 deliveries) · At-risk (was Active in wk 2-4, 0 in last 7d) · Churned (no login 21d+) · Resurrected (delivered after At-risk/Churned).'},
+    {key:'call-list',view:'v_call_list',title:'Re-engagement call list',sub:'Ranked for the calling team · regenerates weekly · randomized week-1/week-2 batches for lift measurement',span:2,chart:false,tableOpen:true,
+      note:'Loading…'}
+  ]},
   {title:'Dispatch & acceptance',desc:'whether pinged riders take the job',panels:[
     {key:'accept-factors',view:'v_accept_factors_summary',title:'Rider accept/reject factors',sub:'Accept rate = pinged rider ends up assigned & delivering',
       dimTypes:[['pickup_distance','Pickup distance'],['drop_distance','Drop distance'],['payout','Payout (₹)'],['account','Account'],['integration','Integration'],['hour_of_day','Hour of day'],['rider_segment','Rider segment (loyal ≥14d tenure & ≥40% active days)']]},
@@ -730,6 +736,8 @@ async function loadPanel(panel,grain,period,suffix){
 
 function renderPanel(key,suffix){
   var rows=(analysisCache[suffix]&&analysisCache[suffix][key])||[];
+  if(key==='lifecycle')return renderLifecycle(rows,suffix);
+  if(key==='call-list')return renderCallList(rows,suffix);
   if(key==='cancel-summary')return renderCancelSummary(rows,suffix);
   if(key==='cancel-dist')return renderCancelDist(rows,suffix);
   if(key==='cancel-reasons')return renderCancelReasons(rows,suffix);
@@ -870,6 +878,51 @@ function updateFunnels(tab){
       {label:'Fulfilled ≥1',sub:'delivered ≥1 order',value:rf?Number(rf.riders_delivered):(wr?Number(wr.riders_with_orders):null),color:FUNNEL_COLORS_5[4]}
     ]);
   }
+}
+
+/* --- lifecycle: end-of-week state stocks + transition matrix --- */
+var STATE_ORDER=['new','active','idle-engaged','at-risk','churned','resurrected'];
+var STATE_COLORS={'new':C.accent,'active':C.good,'idle-engaged':C.cyan,'at-risk':C.warn,'churned':C.bad,'resurrected':C.purple};
+function renderLifecycle(rows,suffix){
+  var thead=document.getElementById('lifecycle-thead-'+suffix);
+  thead.innerHTML='<tr><th>From state</th><th>To state</th><th>Riders</th></tr>';
+  var tbody=document.getElementById('lifecycle-tbody-'+suffix);
+  if(!rows.length){
+    tbody.innerHTML='<tr class="empty-row"><td colspan="3">Awaiting data — needs tasks.v_rider_lifecycle (see SPEC-revenue-views.md §9)</td></tr>';
+    return renderChart('lifecycle-chart-'+suffix,{labels:[],datasets:[]});
+  }
+  var sorted=rows.slice().sort(function(a,b){return b.riders-a.riders;});
+  tbody.innerHTML=sorted.map(function(r){return '<tr><td>'+esc(r.from_state)+'</td><td>'+esc(r.to_state)+'</td><td>'+nz(r.riders)+'</td></tr>';}).join('');
+  var stocks={};
+  rows.forEach(function(r){stocks[r.to_state]=(stocks[r.to_state]||0)+(Number(r.riders)||0);});
+  var states=STATE_ORDER.filter(function(s){return stocks[s];});
+  renderChart('lifecycle-chart-'+suffix,{horizontal:true,
+    labels:states,
+    datasets:[{label:'Riders',data:states.map(function(s){return stocks[s];}),
+      backgroundColor:states.map(function(s){return STATE_COLORS[s]||C.accent;})}],
+    tooltipLabel:function(ctx){return nz(stocks[states[ctx.dataIndex]])+' riders';}});
+}
+
+/* --- call-list: ranked tiers for the calling team --- */
+function renderCallList(rows,suffix){
+  var thead=document.getElementById('call-list-thead-'+suffix);
+  thead.innerHTML='<tr><th>Tier</th><th>Rider</th><th>City</th><th>Batch</th><th>Last delivery</th><th>Deliveries wk 2-4</th><th>Last 7d</th><th>Login hrs 7d</th></tr>';
+  var tbody=document.getElementById('call-list-tbody-'+suffix);
+  var note=document.getElementById('call-list-note-'+suffix);
+  if(!rows.length){
+    tbody.innerHTML='<tr class="empty-row"><td colspan="8">Awaiting data — needs tasks.v_call_list (see SPEC-revenue-views.md §10)</td></tr>';
+    if(note)note.textContent='Tiers: T1 lapsed loyal · T2 declining · T3 online-but-idle · T4 never-activated. Phones stay in ProRouting — join happens at export, never in this app.';
+    return;
+  }
+  var sorted=rows.slice().sort(function(a,b){return String(a.tier).localeCompare(String(b.tier))||(a.rank-b.rank);});
+  var CAP=60;
+  tbody.innerHTML=sorted.slice(0,CAP).map(function(r){
+    return '<tr><td>'+esc(r.tier)+'</td><td style="text-align:left">'+esc(r.rider_username)+'</td><td>'+esc(r.city||'—')+'</td><td>wk '+nz(r.call_batch)+'</td><td>'+esc(r.last_delivery_date?fmtDateOnly(r.last_delivery_date):'—')+'</td><td>'+nz(r.deliveries_w2_4)+'</td><td>'+nz(r.deliveries_last7)+'</td><td>'+nz(r.login_hours_last7,1)+'</td></tr>';
+  }).join('');
+  var tiers={};
+  rows.forEach(function(r){var t=String(r.tier).slice(0,2);tiers[t]=(tiers[t]||0)+1;});
+  if(note)note.textContent='List size — '+Object.keys(tiers).sort().map(function(t){return t+': '+nz(tiers[t]);}).join(' · ')+
+    (rows.length>CAP?' · showing top '+CAP+' by rank':'')+'. Batch wk1/wk2 is randomized per tier — during week 1, wk2 riders are the control group.';
 }
 
 /* --- cancel-summary: table is the primary artifact --- */
