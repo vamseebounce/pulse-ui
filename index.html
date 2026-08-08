@@ -200,6 +200,8 @@
     <div class="tabbar">
       <button class="tabbtn tab-active" id="tabbtn-orders" onclick="switchTab('orders')">Orders</button>
       <button class="tabbtn" id="tabbtn-riders" onclick="switchTab('riders')">Riders</button>
+      <button class="tabbtn" id="tabbtn-zonepilot" onclick="switchTab('zonepilot')">Zone Pilot</button>
+      <button class="tabbtn" id="tabbtn-admin" onclick="switchTab('admin')">Admin</button>
     </div>
 
     <!-- ==================== ORDERS (demand → notify → fulfil) ==================== -->
@@ -313,6 +315,59 @@
 
     </div>
 
+    <!-- ==================== ZONE PILOT (within-zone assignment experiment) ==================== -->
+    <div id="tab-zonepilot" class="tabpanel">
+      <div class="filter-bar">
+        <label>Rider</label>
+        <select id="zp-rider-select" onchange="zpRenderSelected()"><option>Loading…</option></select>
+        <span class="sub" id="zp-rider-sub"></span>
+      </div>
+
+      <div class="kpis" id="zp-kpis">
+        <div class="kpi" id="zp-kpi-zone"><div class="kpi-label">Zone / activated</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+        <div class="kpi" id="zp-kpi-oph"><div class="kpi-label">Post OPH vs marketplace</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+        <div class="kpi" id="zp-kpi-cancel"><div class="kpi-label">Post cancel % vs marketplace</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+        <div class="kpi" id="zp-kpi-delta"><div class="kpi-label">OPH change, pre&rarr;post</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+      </div>
+
+      <div class="sec-head"><h2>Day-by-day</h2><span class="sec-desc">rider vs marketplace (trimmed 10&ndash;90%ile average), all available data since 7 days before activation</span></div>
+      <div class="grid2">
+        <section class="card"><div class="card-head"><h3>Orders per hour</h3></div><div class="chart-wrap"><canvas id="zp-chart-oph"></canvas></div></section>
+        <section class="card"><div class="card-head"><h3>Cancelled-after-assignment %</h3></div><div class="chart-wrap"><canvas id="zp-chart-cancel"></canvas></div></section>
+        <section class="card"><div class="card-head"><h3>Delivery distance (km)</h3></div><div class="chart-wrap"><canvas id="zp-chart-km"></canvas></div></section>
+        <section class="card"><div class="card-head"><h3>Notification burst %</h3></div><div class="chart-wrap"><canvas id="zp-chart-burst"></canvas></div></section>
+      </div>
+
+      <div class="sec-head"><h2>Overall</h2><span class="sec-desc">7-day pre vs post window vs marketplace</span></div>
+      <div class="grid2">
+        <section class="card"><div class="card-head"><h3>OPH &amp; cancellation %</h3></div><div class="chart-wrap"><canvas id="zp-chart-overall1"></canvas></div></section>
+        <section class="card"><div class="card-head"><h3>Delivery distance &amp; burst %</h3></div><div class="chart-wrap"><canvas id="zp-chart-overall2"></canvas></div></section>
+      </div>
+
+      <section class="card">
+        <div class="card-head"><h3>Day-level detail</h3><span class="sub">live from Supabase &mdash; refreshes automatically every ~20 min</span></div>
+        <div class="tbl-x"><table>
+          <thead><tr><th>Date</th><th>Phase</th><th>Login hrs</th><th>Assigned</th><th>Delivered</th><th>OPH</th><th>Mkt OPH</th>
+            <th>Cancelled</th><th>Cancel %</th><th>Mkt Cancel %</th><th>Km</th><th>Mkt Km</th><th>Account</th><th>Pings</th><th>Burst %</th><th>Mkt Burst %</th></tr></thead>
+          <tbody id="zp-day-table"><tr class="empty-row"><td colspan="16">Select a rider…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <div class="note" style="margin-top:-8px;">Pre/Post = 7 calendar days (IST) around each rider's zone activation date. Marketplace = trimmed average of all active riders that day (values between the 10th and 90th percentile). Delivery km = pickup&rarr;drop route length.</div>
+    </div>
+
+    <!-- ==================== ADMIN ==================== -->
+    <div id="tab-admin" class="tabpanel">
+      <div class="sec-head"><h2>Directory</h2><span class="sec-desc">Within-zone pilot roster &mdash; who's in which zone, when they were activated/removed</span></div>
+      <section class="card">
+        <div class="card-head"><h3>Zone pilot riders</h3><span class="sub" id="admin-directory-sub">Loading…</span></div>
+        <div class="tbl-x"><table>
+          <thead><tr><th>Rider</th><th>Number</th><th>Onboarding zone</th><th>Current zone</th><th>Activated</th><th>Removed</th><th>Status</th><th>Note</th></tr></thead>
+          <tbody id="admin-directory-table"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+        </table></div>
+      </section>
+    </div>
+
   </div>
 
 </main>
@@ -390,7 +445,7 @@ var activeTab='orders';
 var grain='week';
 var selectedWeek=null;
 var selectedDay=null;
-var tabBuilt={orders:false,riders:false};
+var tabBuilt={orders:false,riders:false,zonepilot:false,admin:false};
 var tabStamp={orders:null,riders:null};
 
 function currentPeriod(){return grain==='week'?selectedWeek:selectedDay;}
@@ -410,15 +465,21 @@ function onDayChange(){selectedDay=document.getElementById('day-picker').value;r
 
 function switchTab(tab){
   activeTab=tab;
-  document.getElementById('tab-orders').classList.toggle('tab-visible',tab==='orders');
-  document.getElementById('tab-riders').classList.toggle('tab-visible',tab==='riders');
-  document.getElementById('tabbtn-orders').classList.toggle('tab-active',tab==='orders');
-  document.getElementById('tabbtn-riders').classList.toggle('tab-active',tab==='riders');
-  if(!tabBuilt[tab]){
-    tabBuilt[tab]=true;
-    buildAnalysisPanelsInto('analysis-panels-'+tab,tab,tab==='orders'?ORDER_SECTIONS:RIDER_SECTIONS);
+  ['orders','riders','zonepilot','admin'].forEach(function(t){
+    document.getElementById('tab-'+t).classList.toggle('tab-visible',tab===t);
+    document.getElementById('tabbtn-'+t).classList.toggle('tab-active',tab===t);
+  });
+  if(tab==='orders'||tab==='riders'){
+    if(!tabBuilt[tab]){
+      tabBuilt[tab]=true;
+      buildAnalysisPanelsInto('analysis-panels-'+tab,tab,tab==='orders'?ORDER_SECTIONS:RIDER_SECTIONS);
+    }
+    refreshActiveTab();
+  } else if(tab==='zonepilot'){
+    if(!tabBuilt.zonepilot){tabBuilt.zonepilot=true;zpInit();}
+  } else if(tab==='admin'){
+    if(!tabBuilt.admin){tabBuilt.admin=true;adminInit();}
   }
-  refreshActiveTab();
 }
 
 function updateScopeNote(){
@@ -1202,6 +1263,188 @@ function renderNotif(rows,suffix){
     });
     note.textContent='Reached ≥2 riders — '+parts.join(' · ')+(vals.length>8?' · …':'')+'. Hover a segment for exact counts.';
   }
+}
+
+/* ============== ZONE PILOT ============== */
+var zpRoster=[], zpCharts={};
+
+function zpDerive(d){
+  return {
+    oph: d.login_hours>0 ? +(d.delivered/d.login_hours).toFixed(2) : null,
+    cancelPct: d.assigned>0 ? +(100*d.cancelled/d.assigned).toFixed(1) : null,
+    burstPct: d.total_pings>0 ? +(100*d.burst_pings/d.total_pings).toFixed(1) : null
+  };
+}
+
+async function zpInit(){
+  var {data,error}=await sbTasks.from('v_zone_pilot_riders').select('*').order('activated_at');
+  var sel=document.getElementById('zp-rider-select');
+  if(error||!data||!data.length){sel.innerHTML='<option>'+(error?esc(error.message):'No data')+'</option>';return;}
+  zpRoster=data.filter(function(r){return r.status!=='excluded';});
+  sel.innerHTML=zpRoster.map(function(r){return '<option value="'+esc(r.rider_key)+'">'+esc(r.rider_name)+' ('+esc(r.zone_name)+')</option>';}).join('');
+  if(zpRoster.length)zpRenderSelected();
+}
+
+function zpDestroyCharts(){Object.keys(zpCharts).forEach(function(k){zpCharts[k]&&zpCharts[k].destroy();});zpCharts={};}
+
+function zpBurstForPhase(daily,roster,phase){
+  var actDate=roster.activated_at.slice(0,10);
+  var end=new Date(actDate+'T00:00:00Z');end.setUTCDate(end.getUTCDate()+6);
+  var endStr=end.toISOString().slice(0,10);
+  var pings=0,burst=0;
+  daily.forEach(function(d){
+    if(phase==='pre'){if(d.day_ist<actDate){pings+=d.total_pings;burst+=d.burst_pings;}}
+    else{if(d.day_ist>=actDate&&d.day_ist<=endStr){pings+=d.total_pings;burst+=d.burst_pings;}}
+  });
+  return pings>0?+(100*burst/pings).toFixed(1):null;
+}
+
+async function zpRenderSelected(){
+  var key=document.getElementById('zp-rider-select').value;
+  var roster=zpRoster.find(function(r){return r.rider_key===key;});
+  if(!roster)return;
+  document.getElementById('zp-rider-sub').textContent=roster.status==='removed'?
+    ('Removed '+fmtDate(roster.removed_at)+(roster.removal_reason?' — '+roster.removal_reason:'')):'';
+
+  var res=await Promise.all([
+    sbTasks.from('v_zone_pilot_daily').select('*').eq('rider_key',key).order('day_ist'),
+    sbTasks.from('v_marketplace_daily_trimmed').select('*').order('day_ist'),
+    sbTasks.from('v_zone_pilot_performance').select('*').eq('rider_key',key)
+  ]);
+  var daily=res[0].data, mkt=res[1].data, perfRows=res[2].data;
+  if(res[0].error||!daily){
+    document.getElementById('zp-day-table').innerHTML='<tr class="empty-row"><td colspan="16">'+(res[0].error?esc(res[0].error.message):'No data')+'</td></tr>';
+    return;
+  }
+  var mktByDay={};(mkt||[]).forEach(function(m){mktByDay[m.day_ist]=m;});
+  var perf=(perfRows&&perfRows[0])||{};
+  perf.pre_burst_pct=zpBurstForPhase(daily,roster,'pre');
+  perf.post_burst_pct=zpBurstForPhase(daily,roster,'post');
+
+  zpDestroyCharts();
+  zpRenderKPIs(perf,roster);
+  zpRenderLineCharts(daily,mktByDay,roster);
+  zpRenderOverallCharts(perf,roster);
+  zpRenderDayTable(daily,mktByDay,roster);
+}
+
+function zpRenderKPIs(p,roster){
+  function card(id,label,val,sub,cls){
+    document.getElementById(id).innerHTML='<div class="kpi-label">'+label+'</div><div class="kpi-val">'+val+'</div><div class="kpi-sub '+(cls||'')+'">'+sub+'</div>';
+  }
+  card('zp-kpi-zone','Zone / activated',esc(roster.zone_name),fmtDate(roster.activated_at));
+  var postOph=p.post_oph,mktOph=p.post_mkt_oph;
+  card('zp-kpi-oph','Post OPH vs marketplace',nz(postOph,2),
+    (postOph!=null&&mktOph!=null?((postOph>mktOph?'▲ above':'▼ below')+' mkt '+nz(mktOph,2)):'—'),
+    postOph!=null&&mktOph!=null&&postOph>mktOph?'up':'down');
+  var postCxl=p.post_cancel_pct,mktCxl=p.post_mkt_cancel_pct;
+  card('zp-kpi-cancel','Post cancel % vs marketplace',postCxl!=null?nz(postCxl,1)+'%':'—',
+    (postCxl!=null&&mktCxl!=null?((postCxl<mktCxl?'▼ better than':'▲ worse than')+' mkt '+nz(mktCxl,1)+'%'):'—'),
+    postCxl!=null&&mktCxl!=null&&postCxl<mktCxl?'up':'down');
+  var delta=(p.pre_oph&&p.post_oph!=null&&Number(p.pre_oph)>0)?(((p.post_oph-p.pre_oph)/p.pre_oph)*100).toFixed(0):null;
+  card('zp-kpi-delta','OPH change, pre→post',delta===null?'—':(delta>0?'+':'')+delta+'%',
+    delta===null?'no pre-baseline':(delta>0?'improved':'declined'),delta>0?'up':'down');
+}
+
+var zpPhaseDividerPlugin={
+  id:'zpPhaseDivider',
+  beforeDatasetsDraw:function(chart,args,opts){
+    if(opts.index===undefined||opts.index<0)return;
+    var ctx=chart.ctx,area=chart.chartArea,x=chart.scales.x;
+    if(!area||!x)return;
+    var boundaryX=x.getPixelForValue(opts.index)-(x.getPixelForValue(1)-x.getPixelForValue(0))/2;
+    ctx.save();ctx.strokeStyle='#5b9dff';ctx.setLineDash([4,3]);ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(boundaryX,area.top);ctx.lineTo(boundaryX,area.bottom);ctx.stroke();
+    ctx.setLineDash([]);ctx.restore();
+  }
+};
+
+function zpLineDatasets(riderVals,mktVals){
+  return [
+    {label:'Rider',data:riderVals,borderColor:'#5b9dff',backgroundColor:'#5b9dff22',borderWidth:2,spanGaps:true,tension:.25,pointRadius:2.5},
+    {label:'Marketplace (trimmed avg)',data:mktVals,borderColor:'#9aa1ac',backgroundColor:'#9aa1ac22',borderWidth:2,borderDash:[5,3],spanGaps:true,tension:.25,pointRadius:2}
+  ];
+}
+
+function zpLineOpts(phaseIndex){
+  return {responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,color:'#9aa1ac',font:{size:10}}},zpPhaseDivider:{index:phaseIndex}},
+    scales:{x:{grid:{color:'#232833'},ticks:{color:'#9aa1ac',font:{size:9}}},
+      y:{beginAtZero:true,grid:{color:'#232833'},ticks:{color:'#9aa1ac',font:{size:9}}}}};
+}
+
+function zpRenderLineCharts(daily,mktByDay,roster){
+  var labels=daily.map(function(d){return d.day_ist.slice(5);});
+  var actDate=roster.activated_at.slice(0,10);
+  var phaseIndex=daily.findIndex(function(d){return d.day_ist>=actDate;});
+  var oph=daily.map(function(d){return zpDerive(d).oph;});
+  var mktOph=daily.map(function(d){var m=mktByDay[d.day_ist];return m?m.trimmed_oph:null;});
+  var cxl=daily.map(function(d){return zpDerive(d).cancelPct;});
+  var mktCxl=daily.map(function(d){var m=mktByDay[d.day_ist];return m?m.trimmed_cancel_pct:null;});
+  var km=daily.map(function(d){return d.km;});
+  var mktKm=daily.map(function(d){var m=mktByDay[d.day_ist];return m?m.trimmed_km:null;});
+  var burst=daily.map(function(d){return zpDerive(d).burstPct;});
+  var mktBurst=daily.map(function(d){var m=mktByDay[d.day_ist];return m?m.trimmed_burst_pct:null;});
+  zpCharts.oph=new Chart(document.getElementById('zp-chart-oph'),{type:'line',data:{labels:labels,datasets:zpLineDatasets(oph,mktOph)},options:zpLineOpts(phaseIndex),plugins:[zpPhaseDividerPlugin]});
+  zpCharts.cancel=new Chart(document.getElementById('zp-chart-cancel'),{type:'line',data:{labels:labels,datasets:zpLineDatasets(cxl,mktCxl)},options:zpLineOpts(phaseIndex),plugins:[zpPhaseDividerPlugin]});
+  zpCharts.km=new Chart(document.getElementById('zp-chart-km'),{type:'line',data:{labels:labels,datasets:zpLineDatasets(km,mktKm)},options:zpLineOpts(phaseIndex),plugins:[zpPhaseDividerPlugin]});
+  zpCharts.burst=new Chart(document.getElementById('zp-chart-burst'),{type:'line',data:{labels:labels,datasets:zpLineDatasets(burst,mktBurst)},options:zpLineOpts(phaseIndex),plugins:[zpPhaseDividerPlugin]});
+}
+
+function zpRenderOverallCharts(p,roster){
+  var barOpts=function(rightLabel,rightMax){return {responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{boxWidth:10,color:'#9aa1ac',font:{size:9}}}},
+    scales:{x:{ticks:{color:'#9aa1ac',font:{size:10}}},
+      yL:{position:'left',beginAtZero:true,grid:{color:'#232833'},ticks:{color:'#9aa1ac',font:{size:9}}},
+      yR:{position:'right',beginAtZero:true,max:rightMax,grid:{drawOnChartArea:false},ticks:{color:'#9aa1ac',font:{size:9}}}}};};
+  zpCharts.overall1=new Chart(document.getElementById('zp-chart-overall1'),{
+    type:'bar',
+    data:{labels:['Pre','Post'],datasets:[
+      {label:roster.rider_name+' OPH',data:[p.pre_oph,p.post_oph],backgroundColor:'#5b9dffcc',yAxisID:'yL'},
+      {label:'Marketplace OPH',data:[p.pre_mkt_oph,p.post_mkt_oph],backgroundColor:'#5b9dff4d',yAxisID:'yL'},
+      {label:roster.rider_name+' Cancel %',data:[p.pre_cancel_pct,p.post_cancel_pct],backgroundColor:'#f0554bcc',yAxisID:'yR'},
+      {label:'Marketplace Cancel %',data:[p.pre_mkt_cancel_pct,p.post_mkt_cancel_pct],backgroundColor:'#f0554b4d',yAxisID:'yR'}
+    ]},
+    options:barOpts('Cancel %',100)
+  });
+  zpCharts.overall2=new Chart(document.getElementById('zp-chart-overall2'),{
+    type:'bar',
+    data:{labels:['Pre','Post'],datasets:[
+      {label:roster.rider_name+' Km',data:[p.pre_km,p.post_km],backgroundColor:'#f5a623cc',yAxisID:'yL'},
+      {label:'Marketplace Km',data:[p.pre_mkt_km,p.post_mkt_km],backgroundColor:'#f5a6234d',yAxisID:'yL'},
+      {label:roster.rider_name+' Burst %',data:[p.pre_burst_pct,p.post_burst_pct],backgroundColor:'#9b7bd8cc',yAxisID:'yR'},
+      {label:'Marketplace Burst %',data:[p.pre_mkt_burst_pct,p.post_mkt_burst_pct],backgroundColor:'#9b7bd84d',yAxisID:'yR'}
+    ]},
+    options:barOpts('Burst %',100)
+  });
+}
+
+function zpRenderDayTable(daily,mktByDay,roster){
+  var actDate=roster.activated_at.slice(0,10);
+  document.getElementById('zp-day-table').innerHTML=daily.map(function(d){
+    var der=zpDerive(d),m=mktByDay[d.day_ist]||{};
+    var phase=d.day_ist<actDate?'Pre':'Post';
+    return '<tr><td>'+d.day_ist+'</td><td>'+phase+'</td><td>'+nz(d.login_hours,2)+'</td><td>'+nz(d.assigned)+'</td><td>'+nz(d.delivered)+'</td>'+
+      '<td>'+nz(der.oph,2)+'</td><td>'+nz(m.trimmed_oph,2)+'</td>'+
+      '<td>'+nz(d.cancelled)+'</td><td>'+nz(der.cancelPct,1)+'</td><td>'+nz(m.trimmed_cancel_pct,1)+'</td>'+
+      '<td>'+(d.km==null?'—':Number(d.km).toFixed(2))+'</td><td>'+nz(m.trimmed_km,2)+'</td>'+
+      '<td>'+esc(d.preferred_account||'—')+'</td><td>'+nz(d.total_pings)+'</td><td>'+nz(der.burstPct,1)+'</td><td>'+nz(m.trimmed_burst_pct,1)+'</td></tr>';
+  }).join('');
+}
+
+/* ============== ADMIN / DIRECTORY ============== */
+async function adminInit(){
+  var {data,error}=await sbTasks.from('v_zone_pilot_riders').select('*').order('activated_at');
+  var tbody=document.getElementById('admin-directory-table');
+  var sub=document.getElementById('admin-directory-sub');
+  if(error||!data){tbody.innerHTML='<tr class="empty-row"><td colspan="8">'+(error?esc(error.message):'No data')+'</td></tr>';sub.textContent='';return;}
+  sub.textContent=data.length+' riders on the within-zone pilot roster';
+  tbody.innerHTML=data.map(function(r){
+    var cls=r.status==='active'?'status-ok':(r.status==='excluded'?'status-error':'');
+    return '<tr><td>'+esc(r.rider_name)+'</td><td>'+esc(r.rider_key)+'</td><td>'+esc(r.onboarding_zone)+'</td><td>'+esc(r.zone_name)+'</td>'+
+      '<td>'+fmtDate(r.activated_at)+'</td><td>'+(r.removed_at?fmtDate(r.removed_at):'—')+'</td>'+
+      '<td class="'+cls+'">'+esc(r.status)+'</td><td>'+esc(r.removal_reason||r.data_quality_note||'—')+'</td></tr>';
+  }).join('');
 }
 
 /* ============== BOOT ============== */
