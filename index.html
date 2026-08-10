@@ -325,6 +325,23 @@
 
     <!-- ==================== ZONE PILOT (within-zone assignment experiment) ==================== -->
     <div id="tab-zonepilot" class="tabpanel">
+      <div class="sec-head"><h2>Overall</h2><span class="sec-desc">weighted average across every active pilot rider, pre &rarr; post &mdash; the headline trend</span></div>
+      <div class="grid2">
+        <section class="card"><div class="card-head"><h3>Orders per hour</h3></div><div class="chart-wrap"><canvas id="zp-ov-oph"></canvas></div></section>
+        <section class="card"><div class="card-head"><h3>Cancelled-after-assignment %</h3></div><div class="chart-wrap"><canvas id="zp-ov-cancel"></canvas></div></section>
+        <section class="card"><div class="card-head"><h3>Delivery distance (km)</h3></div><div class="chart-wrap"><canvas id="zp-ov-km"></canvas></div></section>
+        <section class="card"><div class="card-head"><h3>Notification burst %</h3></div><div class="chart-wrap"><canvas id="zp-ov-burst"></canvas></div></section>
+      </div>
+      <section class="card">
+        <div class="card-head"><h3>Combined summary</h3><span class="sub" id="zp-ov-sub">Loading…</span></div>
+        <div class="tbl-x"><table>
+          <thead><tr><th>Period</th><th>Login hrs</th><th>Assigned</th><th>Delivered</th><th>OPH</th><th>Mkt OPH</th>
+            <th>Cancel %</th><th>Mkt Cancel %</th><th>Km</th><th>Mkt Km</th><th>Burst %</th><th>Mkt Burst %</th></tr></thead>
+          <tbody id="zp-ov-table"><tr class="empty-row"><td colspan="12">Loading…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <div class="sec-head"><h2>Rider level</h2><span class="sec-desc">pick a rider for their individual day-by-day and pre/post numbers</span></div>
       <div class="filter-bar">
         <label>Rider</label>
         <select id="zp-rider-select" onchange="zpRenderSelected()"><option>Loading…</option></select>
@@ -1318,7 +1335,84 @@ async function zpInit(){
   if(error||!data||!data.length){sel.innerHTML='<option>'+(error?esc(error.message):'No data')+'</option>';return;}
   zpRoster=data.filter(function(r){return r.status!=='excluded';});
   sel.innerHTML=zpRoster.map(function(r){return '<option value="'+esc(r.rider_key)+'">'+esc(r.rider_name)+' ('+esc(r.zone_name)+')</option>';}).join('');
-  if(zpRoster.length)zpRenderSelected();
+  if(zpRoster.length){zpRenderSelected();zpRenderOverall();}
+}
+
+var zpOvCharts={};
+
+async function zpRenderOverall(){
+  var keys=zpRoster.map(function(r){return r.rider_key;});
+  var sub=document.getElementById('zp-ov-sub');
+  if(!keys.length){sub.textContent='No active riders.';return;}
+  var res=await Promise.all([
+    sbTasks.from('v_zone_pilot_daily').select('*').in('rider_key',keys).order('day_ist'),
+    sbTasks.from('v_zone_pilot_performance').select('*').in('rider_key',keys)
+  ]);
+  var allDaily=res[0].data||[], perfRows=res[1].data||[];
+  var perfByKey={};perfRows.forEach(function(p){perfByKey[p.rider_key]=p;});
+
+  function phaseAgg(phase){
+    var login=0,assigned=0,delivered=0,cxl=0,pings=0,burst=0,kmW=0,kmWt=0;
+    var mktOphSum=0,mktCancelSum=0,mktKmSum=0,mktBurstSum=0,n=0;
+    zpRoster.forEach(function(r){
+      var actDate=r.activated_at.slice(0,10);
+      var end=new Date(actDate+'T00:00:00Z');end.setUTCDate(end.getUTCDate()+6);
+      var endStr=end.toISOString().slice(0,10);
+      allDaily.filter(function(d){
+        if(d.rider_key!==r.rider_key)return false;
+        return phase==='pre'?d.day_ist<actDate:(d.day_ist>=actDate&&d.day_ist<=endStr);
+      }).forEach(function(d){
+        login+=Number(d.login_hours)||0;assigned+=d.assigned||0;delivered+=d.delivered||0;cxl+=d.cancelled||0;
+        pings+=d.total_pings||0;burst+=d.burst_pings||0;
+        if(d.km!=null&&d.assigned>0){kmW+=d.km*d.assigned;kmWt+=d.assigned;}
+      });
+      var p=perfByKey[r.rider_key];
+      if(p){
+        var mo=phase==='pre'?p.pre_mkt_oph:p.post_mkt_oph;
+        var mc=phase==='pre'?p.pre_mkt_cancel_pct:p.post_mkt_cancel_pct;
+        var mk=phase==='pre'?p.pre_mkt_km:p.post_mkt_km;
+        var mb=phase==='pre'?p.pre_mkt_burst_pct:p.post_mkt_burst_pct;
+        if(mo!=null){mktOphSum+=Number(mo);mktCancelSum+=Number(mc);mktKmSum+=Number(mk);mktBurstSum+=Number(mb||0);n++;}
+      }
+    });
+    return {
+      login:+login.toFixed(2),assigned:assigned,delivered:delivered,
+      oph:login>0?+(delivered/login).toFixed(2):null,
+      cancelPct:assigned>0?+(100*cxl/assigned).toFixed(1):null,
+      km:kmWt>0?+(kmW/kmWt).toFixed(2):null,
+      burstPct:pings>0?+(100*burst/pings).toFixed(1):null,
+      mktOph:n>0?+(mktOphSum/n).toFixed(2):null,
+      mktCancel:n>0?+(mktCancelSum/n).toFixed(1):null,
+      mktKm:n>0?+(mktKmSum/n).toFixed(2):null,
+      mktBurst:n>0?+(mktBurstSum/n).toFixed(1):null
+    };
+  }
+
+  var pre=phaseAgg('pre'),post=phaseAgg('post');
+  sub.textContent='Weighted across '+zpRoster.length+' active pilot riders, each on their own 7-day pre/post window';
+
+  Object.keys(zpOvCharts).forEach(function(k){zpOvCharts[k]&&zpOvCharts[k].destroy();});
+  zpOvCharts={};
+  function mkLine(id,riderVals,mktVals,color){
+    return new Chart(document.getElementById(id),{type:'line',data:{labels:['Pre','Post'],datasets:[
+      {label:'All riders (weighted avg)',data:riderVals,borderColor:color,backgroundColor:color+'33',borderWidth:3,pointRadius:6,tension:0},
+      {label:'Marketplace (avg of pilot windows)',data:mktVals,borderColor:'#9aa1ac',backgroundColor:'#9aa1ac22',borderWidth:2,borderDash:[5,3],pointRadius:4,tension:0}
+    ]},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,color:'#9aa1ac',font:{size:10}}}},
+      scales:{x:{grid:{color:'#232833'},ticks:{color:'#9aa1ac',font:{size:11,weight:'600'}}},
+        y:{beginAtZero:true,grid:{color:'#232833'},ticks:{color:'#9aa1ac',font:{size:9}}}}}});
+  }
+  zpOvCharts.oph=mkLine('zp-ov-oph',[pre.oph,post.oph],[pre.mktOph,post.mktOph],'#5b9dff');
+  zpOvCharts.cancel=mkLine('zp-ov-cancel',[pre.cancelPct,post.cancelPct],[pre.mktCancel,post.mktCancel],'#f0554b');
+  zpOvCharts.km=mkLine('zp-ov-km',[pre.km,post.km],[pre.mktKm,post.mktKm],'#f5a623');
+  zpOvCharts.burst=mkLine('zp-ov-burst',[pre.burstPct,post.burstPct],[pre.mktBurst,post.mktBurst],'#9b7bd8');
+
+  function row(label,p){
+    return '<tr><td><strong>'+label+'</strong></td><td>'+nz(p.login,2)+'</td><td>'+nz(p.assigned)+'</td><td>'+nz(p.delivered)+'</td>'+
+      '<td>'+nz(p.oph,2)+'</td><td>'+nz(p.mktOph,2)+'</td><td>'+nz(p.cancelPct,1)+'</td><td>'+nz(p.mktCancel,1)+'</td>'+
+      '<td>'+nz(p.km,2)+'</td><td>'+nz(p.mktKm,2)+'</td><td>'+nz(p.burstPct,1)+'</td><td>'+nz(p.mktBurst,1)+'</td></tr>';
+  }
+  document.getElementById('zp-ov-table').innerHTML=row('Pre (7d before each activation)',pre)+row('Post (7d after each activation)',post);
 }
 
 function zpDestroyCharts(){Object.keys(zpCharts).forEach(function(k){zpCharts[k]&&zpCharts[k].destroy();});zpCharts={};}
