@@ -123,6 +123,14 @@
 
   .chart-wrap{padding:14px 16px 8px;height:250px;position:relative;}
 
+  .pulse-btn{background:var(--accent);color:#0b0d11;border:none;border-radius:6px;padding:7px 14px;font-weight:600;font-size:12px;cursor:pointer;}
+  .pulse-btn:hover{opacity:.9;}
+  .pulse-btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+  .pulse-btn.danger{background:rgba(240,85,75,.16);color:var(--bad);border:1px solid rgba(240,85,75,.4);}
+  .pulse-input{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12.5px;}
+  .pulse-input:focus{outline:none;border-color:var(--accent);}
+  .row-actions{display:flex;gap:6px;}
+
   .info-strip{color:var(--muted);font-size:12px;padding:10px 14px;border:1px solid var(--border);border-left:3px solid var(--warn);border-radius:8px;margin-bottom:18px;background:var(--panel);}
 
   /* Funnel (master view) */
@@ -317,6 +325,23 @@
 
     <!-- ==================== ZONE PILOT (within-zone assignment experiment) ==================== -->
     <div id="tab-zonepilot" class="tabpanel">
+      <div class="sec-head"><h2>Overall</h2><span class="sec-desc">weighted average across every active pilot rider, pre &rarr; post &mdash; the headline trend</span></div>
+      <div class="grid2">
+        <section class="card"><div class="card-head"><h3>Orders per hour</h3></div><div class="chart-wrap"><canvas id="zp-ov-oph"></canvas></div></section>
+        <section class="card"><div class="card-head"><h3>Cancelled-after-assignment %</h3></div><div class="chart-wrap"><canvas id="zp-ov-cancel"></canvas></div></section>
+        <section class="card"><div class="card-head"><h3>Delivery distance (km)</h3></div><div class="chart-wrap"><canvas id="zp-ov-km"></canvas></div></section>
+        <section class="card"><div class="card-head"><h3>Notification burst %</h3></div><div class="chart-wrap"><canvas id="zp-ov-burst"></canvas></div></section>
+      </div>
+      <section class="card">
+        <div class="card-head"><h3>Combined summary</h3><span class="sub" id="zp-ov-sub">Loading…</span></div>
+        <div class="tbl-x"><table>
+          <thead><tr><th>Period</th><th>Login hrs</th><th>Assigned</th><th>Delivered</th><th>OPH</th><th>Mkt OPH</th>
+            <th>Cancel %</th><th>Mkt Cancel %</th><th>Km</th><th>Mkt Km</th><th>Burst %</th><th>Mkt Burst %</th></tr></thead>
+          <tbody id="zp-ov-table"><tr class="empty-row"><td colspan="12">Loading…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <div class="sec-head"><h2>Rider level</h2><span class="sec-desc">pick a rider for their individual day-by-day and pre/post numbers</span></div>
       <div class="filter-bar">
         <label>Rider</label>
         <select id="zp-rider-select" onchange="zpRenderSelected()"><option>Loading…</option></select>
@@ -358,12 +383,40 @@
 
     <!-- ==================== ADMIN ==================== -->
     <div id="tab-admin" class="tabpanel">
-      <div class="sec-head"><h2>Directory</h2><span class="sec-desc">Within-zone pilot roster &mdash; who's in which zone, when they were activated/removed</span></div>
+      <div class="sec-head"><h2>Directory</h2><span class="sec-desc">Within-zone pilot roster &mdash; add riders, edit zone/status, or remove</span></div>
       <section class="card">
         <div class="card-head"><h3>Zone pilot riders</h3><span class="sub" id="admin-directory-sub">Loading…</span></div>
+        <div class="filter-bar">
+          <button onclick="dirToggleAddForm()" class="pulse-btn">+ Add rider</button>
+        </div>
+        <div id="dir-add-form" style="display:none;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--panel2);">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="dir-add-name" placeholder="Rider name" class="pulse-input">
+            <input id="dir-add-number" placeholder="Phone (10-digit or +91…)" class="pulse-input">
+            <input id="dir-add-zone" placeholder="Zone (e.g. HSR)" class="pulse-input" style="width:120px;">
+            <input id="dir-add-activated" type="datetime-local" class="pulse-input">
+            <button onclick="dirAddRider()" class="pulse-btn">Add</button>
+            <span id="dir-add-msg" class="sub"></span>
+          </div>
+        </div>
         <div class="tbl-x"><table>
-          <thead><tr><th>Rider</th><th>Number</th><th>Onboarding zone</th><th>Current zone</th><th>Activated</th><th>Removed</th><th>Status</th><th>Note</th></tr></thead>
-          <tbody id="admin-directory-table"><tr class="empty-row"><td colspan="8">Loading…</td></tr></tbody>
+          <thead><tr><th>Rider</th><th>Number</th><th>Onboarding zone</th><th>Current zone</th><th>Activated</th><th>Removed</th><th>Status</th><th>Note</th><th></th></tr></thead>
+          <tbody id="admin-directory-table"><tr class="empty-row"><td colspan="9">Loading…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <div class="sec-head" id="um-sec-head" style="display:none;"><h2>User management</h2><span class="sec-desc">Who has access to Pulse, and what role &mdash; admin only</span></div>
+      <section class="card" id="um-card" style="display:none;">
+        <div class="card-head"><h3>Pulse members</h3><span class="sub" id="um-sub">Loading…</span></div>
+        <div class="filter-bar">
+          <input id="um-add-email" placeholder="email@bounceshare.com" class="pulse-input" style="min-width:220px;">
+          <select id="um-add-role" class="pulse-input"><option value="viewer">viewer</option><option value="admin">admin</option></select>
+          <button onclick="umAddMember()" class="pulse-btn">+ Add member</button>
+          <span id="um-add-msg" class="sub"></span>
+        </div>
+        <div class="tbl-x"><table>
+          <thead><tr><th>Email</th><th>Role</th><th>Added</th><th></th></tr></thead>
+          <tbody id="um-table"><tr class="empty-row"><td colspan="4">Loading…</td></tr></tbody>
         </table></div>
       </section>
     </div>
@@ -1282,7 +1335,84 @@ async function zpInit(){
   if(error||!data||!data.length){sel.innerHTML='<option>'+(error?esc(error.message):'No data')+'</option>';return;}
   zpRoster=data.filter(function(r){return r.status!=='excluded';});
   sel.innerHTML=zpRoster.map(function(r){return '<option value="'+esc(r.rider_key)+'">'+esc(r.rider_name)+' ('+esc(r.zone_name)+')</option>';}).join('');
-  if(zpRoster.length)zpRenderSelected();
+  if(zpRoster.length){zpRenderSelected();zpRenderOverall();}
+}
+
+var zpOvCharts={};
+
+async function zpRenderOverall(){
+  var keys=zpRoster.map(function(r){return r.rider_key;});
+  var sub=document.getElementById('zp-ov-sub');
+  if(!keys.length){sub.textContent='No active riders.';return;}
+  var res=await Promise.all([
+    sbTasks.from('v_zone_pilot_daily').select('*').in('rider_key',keys).order('day_ist'),
+    sbTasks.from('v_zone_pilot_performance').select('*').in('rider_key',keys)
+  ]);
+  var allDaily=res[0].data||[], perfRows=res[1].data||[];
+  var perfByKey={};perfRows.forEach(function(p){perfByKey[p.rider_key]=p;});
+
+  function phaseAgg(phase){
+    var login=0,assigned=0,delivered=0,cxl=0,pings=0,burst=0,kmW=0,kmWt=0;
+    var mktOphSum=0,mktCancelSum=0,mktKmSum=0,mktBurstSum=0,n=0;
+    zpRoster.forEach(function(r){
+      var actDate=r.activated_at.slice(0,10);
+      var end=new Date(actDate+'T00:00:00Z');end.setUTCDate(end.getUTCDate()+6);
+      var endStr=end.toISOString().slice(0,10);
+      allDaily.filter(function(d){
+        if(d.rider_key!==r.rider_key)return false;
+        return phase==='pre'?d.day_ist<actDate:(d.day_ist>=actDate&&d.day_ist<=endStr);
+      }).forEach(function(d){
+        login+=Number(d.login_hours)||0;assigned+=d.assigned||0;delivered+=d.delivered||0;cxl+=d.cancelled||0;
+        pings+=d.total_pings||0;burst+=d.burst_pings||0;
+        if(d.km!=null&&d.assigned>0){kmW+=d.km*d.assigned;kmWt+=d.assigned;}
+      });
+      var p=perfByKey[r.rider_key];
+      if(p){
+        var mo=phase==='pre'?p.pre_mkt_oph:p.post_mkt_oph;
+        var mc=phase==='pre'?p.pre_mkt_cancel_pct:p.post_mkt_cancel_pct;
+        var mk=phase==='pre'?p.pre_mkt_km:p.post_mkt_km;
+        var mb=phase==='pre'?p.pre_mkt_burst_pct:p.post_mkt_burst_pct;
+        if(mo!=null){mktOphSum+=Number(mo);mktCancelSum+=Number(mc);mktKmSum+=Number(mk);mktBurstSum+=Number(mb||0);n++;}
+      }
+    });
+    return {
+      login:+login.toFixed(2),assigned:assigned,delivered:delivered,
+      oph:login>0?+(delivered/login).toFixed(2):null,
+      cancelPct:assigned>0?+(100*cxl/assigned).toFixed(1):null,
+      km:kmWt>0?+(kmW/kmWt).toFixed(2):null,
+      burstPct:pings>0?+(100*burst/pings).toFixed(1):null,
+      mktOph:n>0?+(mktOphSum/n).toFixed(2):null,
+      mktCancel:n>0?+(mktCancelSum/n).toFixed(1):null,
+      mktKm:n>0?+(mktKmSum/n).toFixed(2):null,
+      mktBurst:n>0?+(mktBurstSum/n).toFixed(1):null
+    };
+  }
+
+  var pre=phaseAgg('pre'),post=phaseAgg('post');
+  sub.textContent='Weighted across '+zpRoster.length+' active pilot riders, each on their own 7-day pre/post window';
+
+  Object.keys(zpOvCharts).forEach(function(k){zpOvCharts[k]&&zpOvCharts[k].destroy();});
+  zpOvCharts={};
+  function mkLine(id,riderVals,mktVals,color){
+    return new Chart(document.getElementById(id),{type:'line',data:{labels:['Pre','Post'],datasets:[
+      {label:'All riders (weighted avg)',data:riderVals,borderColor:color,backgroundColor:color+'33',borderWidth:3,pointRadius:6,tension:0},
+      {label:'Marketplace (avg of pilot windows)',data:mktVals,borderColor:'#9aa1ac',backgroundColor:'#9aa1ac22',borderWidth:2,borderDash:[5,3],pointRadius:4,tension:0}
+    ]},options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:true,position:'top',labels:{boxWidth:10,color:'#9aa1ac',font:{size:10}}}},
+      scales:{x:{grid:{color:'#232833'},ticks:{color:'#9aa1ac',font:{size:11,weight:'600'}}},
+        y:{beginAtZero:true,grid:{color:'#232833'},ticks:{color:'#9aa1ac',font:{size:9}}}}}});
+  }
+  zpOvCharts.oph=mkLine('zp-ov-oph',[pre.oph,post.oph],[pre.mktOph,post.mktOph],'#5b9dff');
+  zpOvCharts.cancel=mkLine('zp-ov-cancel',[pre.cancelPct,post.cancelPct],[pre.mktCancel,post.mktCancel],'#f0554b');
+  zpOvCharts.km=mkLine('zp-ov-km',[pre.km,post.km],[pre.mktKm,post.mktKm],'#f5a623');
+  zpOvCharts.burst=mkLine('zp-ov-burst',[pre.burstPct,post.burstPct],[pre.mktBurst,post.mktBurst],'#9b7bd8');
+
+  function row(label,p){
+    return '<tr><td><strong>'+label+'</strong></td><td>'+nz(p.login,2)+'</td><td>'+nz(p.assigned)+'</td><td>'+nz(p.delivered)+'</td>'+
+      '<td>'+nz(p.oph,2)+'</td><td>'+nz(p.mktOph,2)+'</td><td>'+nz(p.cancelPct,1)+'</td><td>'+nz(p.mktCancel,1)+'</td>'+
+      '<td>'+nz(p.km,2)+'</td><td>'+nz(p.mktKm,2)+'</td><td>'+nz(p.burstPct,1)+'</td><td>'+nz(p.mktBurst,1)+'</td></tr>';
+  }
+  document.getElementById('zp-ov-table').innerHTML=row('Pre (7d before each activation)',pre)+row('Post (7d after each activation)',post);
 }
 
 function zpDestroyCharts(){Object.keys(zpCharts).forEach(function(k){zpCharts[k]&&zpCharts[k].destroy();});zpCharts={};}
@@ -1433,18 +1563,154 @@ function zpRenderDayTable(daily,mktByDay,roster){
 }
 
 /* ============== ADMIN / DIRECTORY ============== */
+var dirRoster=[], dirEditKey=null, myRole=null;
+
 async function adminInit(){
+  await Promise.all([dirLoad(), umCheckAccessAndLoad()]);
+}
+
+function dirToggleAddForm(){
+  var el=document.getElementById('dir-add-form');
+  el.style.display = el.style.display==='none' ? 'block' : 'none';
+}
+
+function normPhone(v){
+  var digits=String(v||'').replace(/\D/g,'');
+  if(digits.length===10)digits='91'+digits;
+  return digits;
+}
+
+async function dirAddRider(){
+  var name=document.getElementById('dir-add-name').value.trim();
+  var number=document.getElementById('dir-add-number').value.trim();
+  var zone=document.getElementById('dir-add-zone').value.trim();
+  var activatedRaw=document.getElementById('dir-add-activated').value;
+  var msg=document.getElementById('dir-add-msg');
+  if(!name||!number||!zone){msg.style.color='var(--bad)';msg.textContent='Name, number, and zone are required.';return;}
+  var key=normPhone(number);
+  if(key.length<12){msg.style.color='var(--bad)';msg.textContent='Enter a valid 10-digit mobile number.';return;}
+  var activatedAt=activatedRaw?new Date(activatedRaw).toISOString():new Date().toISOString();
+  msg.style.color='var(--muted)';msg.textContent='Adding…';
+  var {error}=await sbTasks.from('zone_pilot_riders').insert({
+    rider_key:key, rider_name:name, onboarding_zone:zone, zone_name:zone, activated_at:activatedAt, status:'active'
+  });
+  if(error){msg.style.color='var(--bad)';msg.textContent=error.message;return;}
+  msg.style.color='var(--good)';msg.textContent='Added.';
+  ['dir-add-name','dir-add-number','dir-add-zone','dir-add-activated'].forEach(function(id){document.getElementById(id).value='';});
+  dirLoad();
+  if(tabBuilt.zonepilot)zpInit();
+}
+
+async function dirLoad(){
   var {data,error}=await sbTasks.from('v_zone_pilot_riders').select('*').order('activated_at');
-  var tbody=document.getElementById('admin-directory-table');
   var sub=document.getElementById('admin-directory-sub');
-  if(error||!data){tbody.innerHTML='<tr class="empty-row"><td colspan="8">'+(error?esc(error.message):'No data')+'</td></tr>';sub.textContent='';return;}
+  if(error||!data){document.getElementById('admin-directory-table').innerHTML='<tr class="empty-row"><td colspan="9">'+(error?esc(error.message):'No data')+'</td></tr>';sub.textContent='';return;}
+  dirRoster=data;
   sub.textContent=data.length+' riders on the within-zone pilot roster';
-  tbody.innerHTML=data.map(function(r){
+  dirRenderTable();
+}
+
+function dirRenderTable(){
+  var tbody=document.getElementById('admin-directory-table');
+  tbody.innerHTML=dirRoster.map(function(r){
+    if(r.rider_key===dirEditKey)return dirEditRow(r);
     var cls=r.status==='active'?'status-ok':(r.status==='excluded'?'status-error':'');
     return '<tr><td>'+esc(r.rider_name)+'</td><td>'+esc(r.rider_key)+'</td><td>'+esc(r.onboarding_zone)+'</td><td>'+esc(r.zone_name)+'</td>'+
       '<td>'+fmtDate(r.activated_at)+'</td><td>'+(r.removed_at?fmtDate(r.removed_at):'—')+'</td>'+
-      '<td class="'+cls+'">'+esc(r.status)+'</td><td>'+esc(r.removal_reason||r.data_quality_note||'—')+'</td></tr>';
+      '<td class="'+cls+'">'+esc(r.status)+'</td><td>'+esc(r.removal_reason||r.data_quality_note||'—')+'</td>'+
+      '<td class="row-actions"><button class="pulse-btn ghost" onclick="dirStartEdit(\''+r.rider_key+'\')">Edit</button></td></tr>';
   }).join('');
+}
+
+function dirStartEdit(key){dirEditKey=key;dirRenderTable();}
+function dirCancelEdit(){dirEditKey=null;dirRenderTable();}
+
+function dirEditRow(r){
+  var statusOpts=['active','removed','excluded'].map(function(s){return '<option value="'+s+'"'+(s===r.status?' selected':'')+'>'+s+'</option>';}).join('');
+  return '<tr>'+
+    '<td><input class="pulse-input" id="dir-e-name" value="'+esc(r.rider_name)+'" style="width:120px;"></td>'+
+    '<td>'+esc(r.rider_key)+'</td>'+
+    '<td><input class="pulse-input" id="dir-e-onboard" value="'+esc(r.onboarding_zone)+'" style="width:90px;"></td>'+
+    '<td><input class="pulse-input" id="dir-e-zone" value="'+esc(r.zone_name)+'" style="width:90px;"></td>'+
+    '<td>'+fmtDate(r.activated_at)+'</td>'+
+    '<td>'+(r.removed_at?fmtDate(r.removed_at):'—')+'</td>'+
+    '<td><select class="pulse-input" id="dir-e-status">'+statusOpts+'</select></td>'+
+    '<td><input class="pulse-input" id="dir-e-note" value="'+esc(r.removal_reason||'')+'" placeholder="reason / note" style="width:150px;"></td>'+
+    '<td class="row-actions"><button class="pulse-btn" onclick="dirSaveEdit(\''+r.rider_key+'\')">Save</button><button class="pulse-btn ghost" onclick="dirCancelEdit()">Cancel</button></td>'+
+  '</tr>';
+}
+
+async function dirSaveEdit(key){
+  var name=document.getElementById('dir-e-name').value.trim();
+  var onboard=document.getElementById('dir-e-onboard').value.trim();
+  var zone=document.getElementById('dir-e-zone').value.trim();
+  var status=document.getElementById('dir-e-status').value;
+  var note=document.getElementById('dir-e-note').value.trim();
+  var r=dirRoster.find(function(x){return x.rider_key===key;});
+  var patch={rider_name:name,onboarding_zone:onboard,zone_name:zone,status:status,removal_reason:note||null};
+  if(status!=='active'&&r&&!r.removed_at)patch.removed_at=new Date().toISOString();
+  if(status==='active')patch.removed_at=null;
+  var {error}=await sbTasks.from('zone_pilot_riders').update(patch).eq('rider_key',key);
+  if(error){alert(error.message);return;}
+  dirEditKey=null;
+  await dirLoad();
+  if(tabBuilt.zonepilot)zpInit();
+}
+
+/* ---- user management (admin only) ---- */
+async function umCheckAccessAndLoad(){
+  var {data:{session}}=await sbClient.auth.getSession();
+  if(!session)return;
+  var {data}=await sbTasks.from('members').select('role').eq('user_id',session.user.id).maybeSingle();
+  myRole=data?data.role:null;
+  if(myRole==='admin'){
+    document.getElementById('um-sec-head').style.display='';
+    document.getElementById('um-card').style.display='';
+    umLoad();
+  }
+}
+
+async function umLoad(){
+  var {data,error}=await sbTasks.from('members').select('*').order('created_at');
+  var sub=document.getElementById('um-sub');
+  var tbody=document.getElementById('um-table');
+  if(error||!data){tbody.innerHTML='<tr class="empty-row"><td colspan="4">'+(error?esc(error.message):'No data')+'</td></tr>';sub.textContent='';return;}
+  sub.textContent=data.length+' people with Pulse access';
+  tbody.innerHTML=data.map(function(m){
+    return '<tr><td>'+esc(m.email||m.user_id)+'</td>'+
+      '<td><select class="pulse-input" onchange="umChangeRole(\''+m.user_id+'\',this.value)">'+
+        ['viewer','admin'].map(function(rl){return '<option value="'+rl+'"'+(rl===m.role?' selected':'')+'>'+rl+'</option>';}).join('')+
+      '</select></td>'+
+      '<td>'+fmtDate(m.created_at)+'</td>'+
+      '<td><button class="pulse-btn danger" onclick="umRemove(\''+m.user_id+'\',\''+esc((m.email||'').replace(/'/g,"\\'"))+'\')">Remove</button></td></tr>';
+  }).join('');
+}
+
+async function umAddMember(){
+  var email=document.getElementById('um-add-email').value.trim().toLowerCase();
+  var role=document.getElementById('um-add-role').value;
+  var msg=document.getElementById('um-add-msg');
+  if(!email){msg.style.color='var(--bad)';msg.textContent='Enter an email.';return;}
+  msg.style.color='var(--muted)';msg.textContent='Adding…';
+  var {data,error}=await sbTasks.rpc('add_member_by_email',{p_email:email,p_role:role});
+  if(error){msg.style.color='var(--bad)';msg.textContent=error.message;return;}
+  if(data==='not_signed_in_yet'){msg.style.color='var(--warn)';msg.textContent='They need to sign in via the magic link once first — then add them here.';return;}
+  msg.style.color='var(--good)';msg.textContent='Added.';
+  document.getElementById('um-add-email').value='';
+  umLoad();
+}
+
+async function umChangeRole(uid,role){
+  var {error}=await sbTasks.from('members').update({role:role}).eq('user_id',uid);
+  if(error){alert(error.message);}
+  umLoad();
+}
+
+async function umRemove(uid,email){
+  if(!confirm('Remove '+(email||'this person')+"'s access to Pulse?"))return;
+  var {error}=await sbTasks.from('members').delete().eq('user_id',uid);
+  if(error){alert(error.message);return;}
+  umLoad();
 }
 
 /* ============== BOOT ============== */
