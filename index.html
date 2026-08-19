@@ -384,7 +384,7 @@
 
     <!-- ==================== FUNNEL (Bounce Task rider growth: Lead -> Installed -> KYC -> Onboarded -> Activated) ==================== -->
     <div id="tab-funnel" class="tabpanel">
-      <div class="note">Cohort funnel &mdash; each row is a <b>fixed group of riders</b>: everyone whose Lead stage (real or cascade-backfilled) falls in that week. Every later column is &ldquo;how many of that exact same group have <em>ever</em> reached this stage, as of today.&rdquo; Guaranteed non-increasing left to right by construction. Backed by <code>tasks.v_funnel_riders</code> (see <code>docs/Funnel.md</code> in the outer repo for full methodology) via daily-refreshed materialized views &mdash; refreshes on the same <code>tasks.refresh_analysis_views()</code> cron as the rest of Pulse. First slice of the migration from the standalone <code>data/dashboards/funnel_dashboard.html</code>; Weekly Mix, Active Riders Deep-dive (DAR/WAR), and the Churn Matrix retention triangle are not ported yet.</div>
+      <div class="note">Cohort funnel &mdash; each row is a <b>fixed group of riders</b>: everyone whose Lead stage (real or cascade-backfilled) falls in that week. Every later column is &ldquo;how many of that exact same group have <em>ever</em> reached this stage, as of today.&rdquo; Guaranteed non-increasing left to right by construction. Backed by <code>tasks.v_funnel_riders</code> (see <code>docs/Funnel.md</code> in the outer repo for full methodology) via daily-refreshed materialized views &mdash; refreshes on the same <code>tasks.refresh_analysis_views()</code> cron as the rest of Pulse. 2026-08-19: full migration from the standalone <code>data/dashboards/funnel_dashboard.html</code> &mdash; Weekly Mix, Active Riders Deep-dive (DAR/WAR), and the Churn Matrix retention triangle are now ported below, backed by new <code>mv_bouncetask_funnel_weekly_mix</code>/<code>_churn</code>/<code>_dar_war</code>/<code>_cohort_triangle</code> views. Note: DAR/WAR here is recomputed from scratch (days-active-per-rider capped at 7) and may not match older exports of the standalone dashboard, which had a stale/mislabeled avg_dar column.</div>
 
       <div class="kpis" id="kpis-funnel">
         <div class="kpi" id="kpi-f-lead"><div class="kpi-label">Lead</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
@@ -418,6 +418,30 @@
         <div class="tbl-x"><table>
           <thead><tr><th>Lead week</th><th>BD onboarded</th><th>Non-BD onboarded</th><th>BD %</th></tr></thead>
           <tbody id="tbl-funnel-bd"><tr class="empty-row"><td colspan="4">Loading…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h3>Weekly Mix &mdash; new / retained / resurrected riders</h3><span class="sub">Week = calendar week of order activity, not Lead week. Resurrected = gap of 14+ days since last active week.</span></div>
+        <div class="tbl-x"><table>
+          <thead><tr><th>Week</th><th>New</th><th>Retained</th><th>Resurrected</th><th>Churned</th><th>Total WAR</th></tr></thead>
+          <tbody id="tbl-funnel-weeklymix"><tr class="empty-row"><td colspan="6">Loading…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h3>Active Riders Deep-dive &mdash; DAR / WAR</h3><span class="sub">Avg days active/rider = mean distinct order-days per rider that week (max 7). Most recent week is partial.</span></div>
+        <div class="tbl-x"><table>
+          <thead><tr><th>Week</th><th>WAR</th><th>Avg days active / rider</th><th>Days elapsed</th></tr></thead>
+          <tbody id="tbl-funnel-darwar"><tr class="empty-row"><td colspan="4">Loading…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h3>Churn Matrix &mdash; retention triangle</h3><span class="sub">Cohort = rider's first-ever active (order) week. Each cell = % of that cohort still active N weeks later.</span></div>
+        <div class="tbl-x"><table>
+          <thead><tr id="tbl-funnel-triangle-head"><th>Cohort week</th><th>Size</th></tr></thead>
+          <tbody id="tbl-funnel-triangle"><tr class="empty-row"><td colspan="2">Loading…</td></tr></tbody>
         </table></div>
       </section>
     </div>
@@ -1615,15 +1639,22 @@ function zpRenderDayTable(daily,mktByDay,roster){
 // this is the separate Lead->Installed->KYC->Onboarded->Activated acquisition funnel documented in
 // docs/Funnel.md in the outer repo.
 async function funnelInit(){
-  var [kpiRes,cohortRes,segRes]=await Promise.all([
+  var [kpiRes,cohortRes,segRes,mixRes,churnRes,darwarRes,triRes]=await Promise.all([
     sbTasks.from('v_bouncetask_funnel_kpis').select('*').maybeSingle(),
     sbTasks.from('v_bouncetask_funnel_cohort').select('*').order('cohort_week'),
-    sbTasks.from('v_bouncetask_funnel_cohort_seg').select('*').order('cohort_week')
+    sbTasks.from('v_bouncetask_funnel_cohort_seg').select('*').order('cohort_week'),
+    sbTasks.from('v_bouncetask_funnel_weekly_mix').select('*').order('week_start'),
+    sbTasks.from('v_bouncetask_funnel_churn').select('*').order('week_start'),
+    sbTasks.from('v_bouncetask_funnel_dar_war').select('*').order('week_start'),
+    sbTasks.from('v_bouncetask_funnel_cohort_triangle').select('*').order('cohort_week').order('wk_offset')
   ]);
   funnelRenderKpis(kpiRes.data,kpiRes.error);
   funnelRenderCohort(cohortRes.data,cohortRes.error);
   funnelRenderCohortPct(cohortRes.data,cohortRes.error);
   funnelRenderBd(segRes.data,segRes.error);
+  funnelRenderWeeklyMix(mixRes.data,mixRes.error,churnRes.data);
+  funnelRenderDarWar(darwarRes.data,darwarRes.error);
+  funnelRenderTriangle(triRes.data,triRes.error);
 }
 
 function funnelSetKpi(id,val){
@@ -1680,6 +1711,61 @@ function funnelRenderBd(data,error){
     var m=byWeek[w],total=m.bd+m.nonbd;
     var pct=total?((100*m.bd/total).toFixed(1)+'%'):'—';
     return '<tr><td>'+fmtDateOnly(w)+'</td><td>'+nz(m.bd)+'</td><td>'+nz(m.nonbd)+'</td><td>'+pct+'</td></tr>';
+  }).join('');
+}
+
+function funnelRenderWeeklyMix(data,error,churnData){
+  var tbody=document.getElementById('tbl-funnel-weeklymix');
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="6">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  var byWeek={};
+  data.forEach(function(r){
+    if(!byWeek[r.week_start])byWeek[r.week_start]={n:0,r:0,s:0};
+    if(r.bucket==='new')byWeek[r.week_start].n=r.cnt;
+    else if(r.bucket==='retained')byWeek[r.week_start].r=r.cnt;
+    else if(r.bucket==='resurrected')byWeek[r.week_start].s=r.cnt;
+  });
+  var churnByWeek={};
+  (churnData||[]).forEach(function(r){churnByWeek[r.week_start]=r.cnt;});
+  var weeks=Object.keys(byWeek).sort();
+  tbody.innerHTML=weeks.map(function(w){
+    var m=byWeek[w],total=m.n+m.r+m.s;
+    var churned=churnByWeek[w];
+    return '<tr><td>'+fmtDateOnly(w)+'</td><td>'+nz(m.n)+'</td><td>'+nz(m.r)+'</td><td>'+nz(m.s)+'</td><td>'+(churned==null?'—':nz(churned))+'</td><td>'+nz(total)+'</td></tr>';
+  }).join('');
+}
+
+function funnelRenderDarWar(data,error){
+  var tbody=document.getElementById('tbl-funnel-darwar');
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="4">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  tbody.innerHTML=data.map(function(r){
+    var week=fmtDateOnly(r.week_start)+(r.is_partial?' <span class="sub">(partial)</span>':'');
+    return '<tr><td>'+week+'</td><td>'+nz(r.war)+'</td><td>'+(r.avg_dar==null?'—':r.avg_dar)+'</td><td>'+nz(r.days_with_data)+'</td></tr>';
+  }).join('');
+}
+
+function funnelRenderTriangle(data,error){
+  var thead=document.getElementById('tbl-funnel-triangle-head');
+  var tbody=document.getElementById('tbl-funnel-triangle');
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="2">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  var byCohort={};
+  var maxOffset=0;
+  data.forEach(function(r){
+    if(!byCohort[r.cohort_week])byCohort[r.cohort_week]={};
+    byCohort[r.cohort_week][r.wk_offset]=r.active_cnt;
+    if(r.wk_offset>maxOffset)maxOffset=r.wk_offset;
+  });
+  var cohorts=Object.keys(byCohort).sort();
+  thead.innerHTML='<th>Cohort week</th><th>Size</th>'+Array.from({length:maxOffset},function(_,i){return '<th>Wk +'+(i+1)+'</th>';}).join('');
+  tbody.innerHTML=cohorts.map(function(cw){
+    var row=byCohort[cw];
+    var size=row[0]||0;
+    var cells=Array.from({length:maxOffset},function(_,i){
+      var off=i+1;
+      if(!(off in row))return '<td>—</td>';
+      var pct=size?((100*row[off]/size).toFixed(0)+'%'):'—';
+      return '<td>'+pct+'</td>';
+    }).join('');
+    return '<tr><td>'+fmtDateOnly(cw)+'</td><td>'+nz(size)+'</td>'+cells+'</tr>';
   }).join('');
 }
 
