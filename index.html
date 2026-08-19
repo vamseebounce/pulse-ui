@@ -193,7 +193,7 @@
       </details>
     </section>
 
-    <div class="scope-bar">
+    <div class="scope-bar" id="scope-bar">
       <span class="grain-toggle">
         <button id="grainbtn-week" class="on" onclick="setGrain('week')">Week</button>
         <button id="grainbtn-day" onclick="setGrain('day')">Day</button>
@@ -563,6 +563,9 @@ function switchTab(tab){
     document.getElementById('tab-'+t).classList.toggle('tab-visible',tab===t);
     document.getElementById('tabbtn-'+t).classList.toggle('tab-active',tab===t);
   });
+  // Week/Day scope bar only means anything for Orders and Riders (they read grain/period).
+  // Zone Pilot, Funnel, and Admin have their own self-contained data and ignore it entirely.
+  document.getElementById('scope-bar').style.display=(tab==='orders'||tab==='riders')?'':'none';
   if(tab==='orders'||tab==='riders'){
     if(!tabBuilt[tab]){
       tabBuilt[tab]=true;
