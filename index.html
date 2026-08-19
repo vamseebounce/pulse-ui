@@ -209,6 +209,7 @@
       <button class="tabbtn tab-active" id="tabbtn-orders" onclick="switchTab('orders')">Orders</button>
       <button class="tabbtn" id="tabbtn-riders" onclick="switchTab('riders')">Riders</button>
       <button class="tabbtn" id="tabbtn-zonepilot" onclick="switchTab('zonepilot')">Zone Pilot</button>
+      <button class="tabbtn" id="tabbtn-funnel" onclick="switchTab('funnel')">Funnel</button>
       <button class="tabbtn" id="tabbtn-admin" onclick="switchTab('admin')">Admin</button>
     </div>
 
@@ -381,6 +382,46 @@
       <div class="note" style="margin-top:-8px;">Pre/Post = 7 calendar days (IST) around each rider's zone activation date. Marketplace = trimmed average of all active riders that day (values between the 10th and 90th percentile). Delivery km = pickup&rarr;drop route length.</div>
     </div>
 
+    <!-- ==================== FUNNEL (Bounce Task rider growth: Lead -> Installed -> KYC -> Onboarded -> Activated) ==================== -->
+    <div id="tab-funnel" class="tabpanel">
+      <div class="note">Cohort funnel &mdash; each row is a <b>fixed group of riders</b>: everyone whose Lead stage (real or cascade-backfilled) falls in that week. Every later column is &ldquo;how many of that exact same group have <em>ever</em> reached this stage, as of today.&rdquo; Guaranteed non-increasing left to right by construction. Backed by <code>tasks.v_funnel_riders</code> (see <code>docs/Funnel.md</code> in the outer repo for full methodology) via daily-refreshed materialized views &mdash; refreshes on the same <code>tasks.refresh_analysis_views()</code> cron as the rest of Pulse. First slice of the migration from the standalone <code>data/dashboards/funnel_dashboard.html</code>; Weekly Mix, Active Riders Deep-dive (DAR/WAR), and the Churn Matrix retention triangle are not ported yet.</div>
+
+      <div class="kpis" id="kpis-funnel">
+        <div class="kpi" id="kpi-f-lead"><div class="kpi-label">Lead</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+        <div class="kpi" id="kpi-f-installed"><div class="kpi-label">Installed</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+        <div class="kpi" id="kpi-f-kycinit"><div class="kpi-label">KYC initiated</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+        <div class="kpi" id="kpi-f-kycdone"><div class="kpi-label">KYC done</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+        <div class="kpi" id="kpi-f-onboarded"><div class="kpi-label">Onboarded</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+        <div class="kpi" id="kpi-f-activated"><div class="kpi-label">Activated</div><div class="kpi-val">—</div><div class="kpi-sub">&nbsp;</div></div>
+        <div class="kpi" id="kpi-f-bd"><div class="kpi-label">BD</div><div class="kpi-val">—</div><div class="kpi-sub">of Onboarded</div></div>
+        <div class="kpi" id="kpi-f-nonbd"><div class="kpi-label">Non-BD</div><div class="kpi-val">—</div><div class="kpi-sub">of Onboarded</div></div>
+      </div>
+
+      <section class="card">
+        <div class="card-head"><h3>Lead cohort funnel &mdash; absolute</h3><span class="sub" id="funnel-cohort-sub">Loading…</span></div>
+        <div class="tbl-x"><table>
+          <thead><tr><th>Lead week</th><th>Lead</th><th>Installed</th><th>KYC initiated</th><th>KYC done</th><th>Onboarded</th><th>Activated</th></tr></thead>
+          <tbody id="tbl-funnel-cohort"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h3>Lead cohort funnel &mdash; % of cohort Lead</h3></div>
+        <div class="tbl-x"><table>
+          <thead><tr><th>Lead week</th><th>Lead</th><th>Installed</th><th>KYC initiated</th><th>KYC done</th><th>Onboarded</th><th>Activated</th></tr></thead>
+          <tbody id="tbl-funnel-cohort-pct"><tr class="empty-row"><td colspan="7">Loading…</td></tr></tbody>
+        </table></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h3>BD vs Non-BD &mdash; by Lead week</h3><span class="sub">BD = ledger presence or current balance &ge;&#8377;500. Non-BD = organic &#8377;99/&#8377;399 ProRouting deposit.</span></div>
+        <div class="tbl-x"><table>
+          <thead><tr><th>Lead week</th><th>BD onboarded</th><th>Non-BD onboarded</th><th>BD %</th></tr></thead>
+          <tbody id="tbl-funnel-bd"><tr class="empty-row"><td colspan="4">Loading…</td></tr></tbody>
+        </table></div>
+      </section>
+    </div>
+
     <!-- ==================== ADMIN ==================== -->
     <div id="tab-admin" class="tabpanel">
       <div class="sec-head"><h2>Directory</h2><span class="sec-desc">Within-zone pilot roster &mdash; add riders, edit zone/status, or remove</span></div>
@@ -498,7 +539,7 @@ var activeTab='orders';
 var grain='week';
 var selectedWeek=null;
 var selectedDay=null;
-var tabBuilt={orders:false,riders:false,zonepilot:false,admin:false};
+var tabBuilt={orders:false,riders:false,zonepilot:false,admin:false,funnel:false};
 var tabStamp={orders:null,riders:null};
 
 function currentPeriod(){return grain==='week'?selectedWeek:selectedDay;}
@@ -518,7 +559,7 @@ function onDayChange(){selectedDay=document.getElementById('day-picker').value;r
 
 function switchTab(tab){
   activeTab=tab;
-  ['orders','riders','zonepilot','admin'].forEach(function(t){
+  ['orders','riders','zonepilot','admin','funnel'].forEach(function(t){
     document.getElementById('tab-'+t).classList.toggle('tab-visible',tab===t);
     document.getElementById('tabbtn-'+t).classList.toggle('tab-active',tab===t);
   });
@@ -532,6 +573,8 @@ function switchTab(tab){
     if(!tabBuilt.zonepilot){tabBuilt.zonepilot=true;zpInit();}
   } else if(tab==='admin'){
     if(!tabBuilt.admin){tabBuilt.admin=true;adminInit();}
+  } else if(tab==='funnel'){
+    if(!tabBuilt.funnel){tabBuilt.funnel=true;funnelInit();}
   }
 }
 
@@ -1559,6 +1602,81 @@ function zpRenderDayTable(daily,mktByDay,roster){
       '<td>'+nz(d.cancelled)+'</td><td>'+nz(der.cancelPct,1)+'</td><td>'+nz(m.trimmed_cancel_pct,1)+'</td>'+
       '<td>'+(d.km==null?'—':Number(d.km).toFixed(2))+'</td><td>'+nz(m.trimmed_km,2)+'</td>'+
       '<td>'+esc(d.preferred_account||'—')+'</td><td>'+nz(d.total_pings)+'</td><td>'+nz(der.burstPct,1)+'</td><td>'+nz(m.trimmed_burst_pct,1)+'</td></tr>';
+  }).join('');
+}
+
+/* ============== FUNNEL (Bounce Task rider growth) ============== */
+// Sources: tasks.v_bouncetask_funnel_kpis / v_bouncetask_funnel_cohort / v_bouncetask_funnel_cohort_seg
+// (thin views over daily-refreshed materialized views, gated by tasks.is_member() same as the rest of Pulse).
+// Distinct namespace from the pre-existing tasks.v_rider_funnel (Orders/Riders engagement funnel) —
+// this is the separate Lead->Installed->KYC->Onboarded->Activated acquisition funnel documented in
+// docs/Funnel.md in the outer repo.
+async function funnelInit(){
+  var [kpiRes,cohortRes,segRes]=await Promise.all([
+    sbTasks.from('v_bouncetask_funnel_kpis').select('*').maybeSingle(),
+    sbTasks.from('v_bouncetask_funnel_cohort').select('*').order('cohort_week'),
+    sbTasks.from('v_bouncetask_funnel_cohort_seg').select('*').order('cohort_week')
+  ]);
+  funnelRenderKpis(kpiRes.data,kpiRes.error);
+  funnelRenderCohort(cohortRes.data,cohortRes.error);
+  funnelRenderCohortPct(cohortRes.data,cohortRes.error);
+  funnelRenderBd(segRes.data,segRes.error);
+}
+
+function funnelSetKpi(id,val){
+  var el=document.getElementById(id);
+  if(el)el.querySelector('.kpi-val').textContent=val;
+}
+
+function funnelRenderKpis(row,error){
+  if(error||!row){
+    ['kpi-f-lead','kpi-f-installed','kpi-f-kycinit','kpi-f-kycdone','kpi-f-onboarded','kpi-f-activated','kpi-f-bd','kpi-f-nonbd'].forEach(function(id){funnelSetKpi(id,'—');});
+    return;
+  }
+  funnelSetKpi('kpi-f-lead',nz(row.lead_cnt));
+  funnelSetKpi('kpi-f-installed',nz(row.installed_cnt));
+  funnelSetKpi('kpi-f-kycinit',nz(row.kyc_initiated_cnt));
+  funnelSetKpi('kpi-f-kycdone',nz(row.kyc_done_cnt));
+  funnelSetKpi('kpi-f-onboarded',nz(row.onboarded_cnt));
+  funnelSetKpi('kpi-f-activated',nz(row.activated_cnt));
+  funnelSetKpi('kpi-f-bd',nz(row.bd_cnt));
+  funnelSetKpi('kpi-f-nonbd',nz(row.nonbd_cnt));
+  var sub=document.getElementById('funnel-cohort-sub');
+  if(sub)sub.textContent='as of '+fmtDate(row.computed_at);
+}
+
+function funnelRenderCohort(data,error){
+  var tbody=document.getElementById('tbl-funnel-cohort');
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  tbody.innerHTML=data.map(function(r){
+    return '<tr><td>'+fmtDateOnly(r.cohort_week)+'</td><td>'+nz(r.lead_cnt)+'</td><td>'+nz(r.installed_cnt)+'</td><td>'+nz(r.kyc_initiated_cnt)+'</td><td>'+nz(r.kyc_done_cnt)+'</td><td>'+nz(r.onboarded_cnt)+'</td><td>'+nz(r.activated_cnt)+'</td></tr>';
+  }).join('');
+}
+
+function funnelRenderCohortPct(data,error){
+  var tbody=document.getElementById('tbl-funnel-cohort-pct');
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="7">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  tbody.innerHTML=data.map(function(r){
+    var base=r.lead_cnt||0;
+    var pct=function(v){return base?((100*v/base).toFixed(1)+'%'):'—';};
+    return '<tr><td>'+fmtDateOnly(r.cohort_week)+'</td><td>'+nz(r.lead_cnt)+'</td><td>'+pct(r.installed_cnt)+'</td><td>'+pct(r.kyc_initiated_cnt)+'</td><td>'+pct(r.kyc_done_cnt)+'</td><td>'+pct(r.onboarded_cnt)+'</td><td>'+pct(r.activated_cnt)+'</td></tr>';
+  }).join('');
+}
+
+function funnelRenderBd(data,error){
+  var tbody=document.getElementById('tbl-funnel-bd');
+  if(error||!data||!data.length){tbody.innerHTML='<tr class="empty-row"><td colspan="4">'+(error?esc(error.message):'No data')+'</td></tr>';return;}
+  var byWeek={};
+  data.forEach(function(r){
+    if(!byWeek[r.cohort_week])byWeek[r.cohort_week]={bd:0,nonbd:0};
+    if(r.seg==='BD')byWeek[r.cohort_week].bd+=r.onboarded_cnt;
+    else byWeek[r.cohort_week].nonbd+=r.onboarded_cnt;
+  });
+  var weeks=Object.keys(byWeek).sort();
+  tbody.innerHTML=weeks.map(function(w){
+    var m=byWeek[w],total=m.bd+m.nonbd;
+    var pct=total?((100*m.bd/total).toFixed(1)+'%'):'—';
+    return '<tr><td>'+fmtDateOnly(w)+'</td><td>'+nz(m.bd)+'</td><td>'+nz(m.nonbd)+'</td><td>'+pct+'</td></tr>';
   }).join('');
 }
 
