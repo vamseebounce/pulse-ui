@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bounce Task Funnel — Growth Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1"></script>
+<style>
+:root{
+  --bg-primary:#f5f6f8; --bg-card:#ffffff; --bg-header:#12131c;
+  --text-primary:#1a1c23; --text-secondary:#6b7280; --text-on-dark:#ffffff;
+  --c1:#4C72B0; --c2:#DD8452; --c3:#55A868; --c4:#C44E52; --c5:#8172B3; --c6:#937860;
+  --positive:#1f9d55; --negative:#d64545; --warn:#b98900;
+  --gap:16px; --radius:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.5;font-size:14px;}
+.wrap{max-width:1440px;margin:0 auto;padding:var(--gap);}
+header{background:var(--bg-header);color:var(--text-on-dark);padding:22px 26px;border-radius:var(--radius);margin-bottom:var(--gap);}
+header h1{font-size:21px;font-weight:650;margin-bottom:4px;}
+header p{color:#a9adbb;font-size:12.5px;}
+nav{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:var(--gap);}
+nav button{background:var(--bg-card);border:1px solid #e2e4ea;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;color:var(--text-secondary);cursor:pointer;}
+nav button.active{background:var(--bg-header);color:#fff;border-color:var(--bg-header);}
+.tab{display:none;}
+.tab.active{display:block;}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--gap);margin-bottom:var(--gap);}
+.kpi-card{background:var(--bg-card);border-radius:var(--radius);padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.kpi-label{font-size:11px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;}
+.kpi-value{font-size:23px;font-weight:700;}
+.kpi-sub{font-size:11.5px;color:var(--text-secondary);margin-top:2px;}
+.card{background:var(--bg-card);border-radius:var(--radius);padding:18px 20px;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:var(--gap);}
+.card h3{font-size:14px;font-weight:650;margin-bottom:2px;}
+.card .desc{font-size:12px;color:var(--text-secondary);margin-bottom:14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap);}
+.chart-box{position:relative;height:280px;}
+.chart-box.tall{height:340px;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead th{text-align:right;padding:7px 9px;border-bottom:2px solid #e5e7eb;color:var(--text-secondary);font-weight:650;font-size:11px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
+thead th:first-child, thead th.left{text-align:left;}
+tbody td{padding:6px 9px;border-bottom:1px solid #f0f1f4;text-align:right;white-space:nowrap;}
+tbody td:first-child, tbody td.left{text-align:left;font-weight:600;}
+tbody tr:hover{background:#f8f9fb;}
+.tblwrap{overflow-x:auto;}
+.pos{color:var(--positive);} .neg{color:var(--negative);}
+.note{font-size:12px;color:var(--text-secondary);background:#fbf6e9;border:1px solid #eddf9e;border-left:3px solid var(--warn);border-radius:8px;padding:10px 14px;margin-bottom:var(--gap);}
+.pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;}
+.pill.bd{background:#e6f4ea;color:#1f9d55;}
+.pill.nonbd{background:#eef1fb;color:#4C72B0;}
+.heat{color:#12131c;font-weight:600;}
+.blank{color:#c7cad2;}
+footer{text-align:center;font-size:11.5px;color:var(--text-secondary);padding:18px 0 4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Bounce Task &mdash; Rider Funnel &amp; Growth Dashboard</h1>
+    <p>Local build, pending migration into Pulse (tasks.bounceops.online). Data as of the most recent daily snapshot &mdash; will refresh at 8am IST daily once wired in.</p>
+    <div id="scopebar" style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <label for="fromweek" style="font-size:12px;color:#a9adbb;">Week range: from</label>
+      <select id="fromweek" style="padding:5px 8px;border-radius:6px;border:1px solid #333;background:#1c1e2b;color:#fff;font-size:12.5px;"></select>
+      <label for="toweek" style="font-size:12px;color:#a9adbb;">to</label>
+      <select id="toweek" style="padding:5px 8px;border-radius:6px;border:1px solid #333;background:#1c1e2b;color:#fff;font-size:12.5px;"></select>
+      <button id="resetweek" style="padding:5px 10px;border-radius:6px;border:1px solid #333;background:transparent;color:#a9adbb;font-size:12px;cursor:pointer;">Reset</button>
+      <span style="font-size:12px;color:#a9adbb;margin-left:10px;">Segment</span>
+      <span id="seg-group" style="display:inline-flex;border:1px solid #333;border-radius:6px;overflow:hidden;"></span>
+      <span id="seg-subgroup" style="display:none;align-items:center;gap:6px;">
+        <span style="font-size:11px;color:#6b7280;">&rarr;</span>
+        <span id="seg-subgroup-buttons" style="display:inline-flex;border:1px solid #333;border-radius:6px;overflow:hidden;"></span>
+      </span>
+    </div>
+  </header>
+
+  <nav id="tabnav"></nav>
+
+  <div id="tab-exec" class="tab">
+    <div class="card" style="background:var(--bg-header);color:#fff;">
+      <div id="exec-headline" style="font-size:16px;font-weight:650;line-height:1.5;"></div>
+    </div>
+    <div class="card">
+      <h3>Rider funnel &mdash; all-time</h3>
+      <div class="desc">Every rider who has ever entered the funnel, by the furthest stage reached to date.</div>
+      <div class="chart-box"><canvas id="chart-exec-funnel"></canvas></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>This week vs last week</h3>
+        <div class="desc">Last week is the most recently completed Mon&ndash;Sun. This week is still in progress.</div>
+        <div class="kpi-row" id="exec-wow-row" style="margin-bottom:0;"></div>
+      </div>
+      <div class="card">
+        <h3>BD vs Non-BD, all-time</h3>
+        <div class="desc">Share of onboarded riders who are BD (Bounce&rsquo;s own deposit ledger) vs Non-BD (organic &#8377;99/&#8377;399 sign-up).</div>
+        <div class="chart-box"><canvas id="chart-exec-bd"></canvas></div>
+      </div>
+    </div>
+    <div class="note">Everything below this tab is the detailed, analyst-level breakdown &mdash; cohort tables, retention triangles, methodology notes &mdash; behind the same numbers shown above.</div>
+  </div>
+
+  <div id="tab-overview" class="tab">
+    <div class="kpi-row" id="kpi-row"></div>
+    <div class="note">
+      <b>Rebuilt as a true cohort funnel &mdash; this replaces the earlier weekly-event-volume version, which was wrong.</b> The row for each week is a <em>fixed group of riders</em>: everyone whose Lead stage (real or cascade-backfilled) falls in that week. Every number after that is &ldquo;how many of that exact same group have <em>ever</em> reached this stage, as of today&rdquo; &mdash; not a separate independent count for a different set of people in a different week. Because <code>reached_installed &rArr; reached_lead</code>, <code>reached_kyc_done &rArr; reached_installed</code>, etc. always holds per rider in the confirmed cascade, each column is guaranteed to be &le; the one before it. Nothing here can read over 100% or increase step to step &mdash; if it does, that's a bug, not a data quirk. Totals reconcile exactly with the KPI tile above and across cohorts below: Lead 26,438, Installed 25,030, KYC initiated 15,424, KYC done 11,706, Onboarded 8,349, Activated 2,433. If the KPI cards above show a smaller Lead number than this, check the Week range picker at the top &mdash; it filters the whole page, and a narrowed range (e.g. starting mid-year) will legitimately show fewer riders than the all-time total quoted here.
+    </div>
+    <div class="card">
+      <h3>Lead Cohort Funnel &mdash; absolute</h3>
+      <div class="desc">Rows = week the Lead stage was reached. Each column = how many of that same cohort have reached that stage by now.</div>
+      <div class="tblwrap"><table id="tbl-funnel-wow"></table></div>
+    </div>
+    <div class="card">
+      <h3>Lead Cohort Funnel &mdash; % of cohort (Lead)</h3>
+      <div class="desc">Same cohorts; each stage shown as a % of that cohort's Lead count. Strictly non-increasing left to right.</div>
+      <div class="tblwrap"><table id="tbl-funnel-pctlead"></table></div>
+    </div>
+    <div class="card">
+      <h3>Lead Cohort Funnel &mdash; step conversion (% of previous stage)</h3>
+      <div class="desc">Same cohorts; each stage as a % of the stage immediately before it &mdash; where the biggest drop-off happens for that cohort.</div>
+      <div class="tblwrap"><table id="tbl-funnel-pctprior"></table></div>
+    </div>
+  </div>
+
+  <div id="tab-bd" class="tab">
+    <div class="grid2">
+      <div class="card">
+        <h3>BD vs Non-BD &mdash; Onboarded riders</h3>
+        <div class="desc">BD = found in Bounce&rsquo;s internal deposit ledger or current balance &ge;&#8377;500. Non-BD = organic ProRouting deposit of &#8377;99 or &#8377;399.</div>
+        <div class="chart-box"><canvas id="chart-bd"></canvas></div>
+      </div>
+      <div class="card">
+        <h3>Non-BD: deposit tier split</h3>
+        <div class="desc">&#8377;99 vs &#8377;399 organic sign-up tiers. Note below on the &ldquo;&#8377;0&rdquo; tier.</div>
+        <div class="chart-box"><canvas id="chart-deposit"></canvas></div>
+      </div>
+    </div>
+    <div class="note" id="deposit-note"></div>
+    <div class="card">
+      <h3>BD vs Non-BD by city</h3>
+      <div class="tblwrap"><table id="tbl-bd-city"></table></div>
+    </div>
+  </div>
+
+  <div id="tab-mix" class="tab">
+    <div class="card">
+      <h3>Weekly Rider Mix &mdash; New / Retained / Resurrected vs Churned</h3>
+      <div class="desc">Active = delivered &ge;1 order that week. New = first-ever active week. Resurrected = returned after missing &gt;2 weeks (matches the existing Reactivated flag). Churned(W) = active in W&minus;1, not active in W.</div>
+      <div class="chart-box tall"><canvas id="chart-mix"></canvas></div>
+    </div>
+    <div class="note" id="mix-insight"></div>
+    <div class="card">
+      <h3>Mix detail &mdash; absolute &amp; %</h3>
+      <div class="tblwrap"><table id="tbl-mix"></table></div>
+    </div>
+  </div>
+
+  <div id="tab-riders" class="tab">
+    <div class="note">
+      <b>Avg active days/week = stickiness / part-timer signal.</b> WAR = distinct riders active (&ge;1 delivered order) at any point in the week. For each rider active that week, count how many distinct days they were active, then average across all of that week's active riders &mdash; a number from 0&ndash;7. <b>Low</b> (1&ndash;2 days) means the week's active pool is mostly showing up once or twice and gone &mdash; part-time / occasional gig behaviour. <b>High</b> (5&ndash;7 days) means most of that week's active riders are showing up nearly every day &mdash; full-time-like behaviour. Computed as (avg daily distinct riders &divide; WAR) &times; 7, which for a complete week is exactly total rider-active-days &divide; WAR &mdash; the sum, not a percentage; normalizing by days-elapsed-so-far (rather than a flat 7) is what keeps partial weeks on the same 0&ndash;7 scale as full ones, though partial-week values are an extrapolated pace, not a completed count. Weeks with fewer than 7 days of order data are marked <b>partial</b> &mdash; this includes the first/last weeks in the data window (window starts/ends mid-week) and also 2026-07-13, which is missing 2026-07-16 entirely (0 riders delivered any order that day, and 0 orders were even created platform-wide that day &mdash; a real outage, not a data artifact; worth checking against an incident log). Read the trend off full weeks only.
+    </div>
+    <div class="card">
+      <h3>Active Riders Deep-dive &mdash; avg active days/week</h3>
+      <div class="desc">Weekly stickiness: of a week's active riders, how many distinct days a week does the average one show up (0&ndash;7).</div>
+      <div class="chart-box"><canvas id="chart-darwar"></canvas></div>
+    </div>
+    <div class="note" id="darwar-insight"></div>
+    <div class="card">
+      <h3>DAR/WAR detail</h3>
+      <div class="tblwrap"><table id="tbl-darwar"></table></div>
+    </div>
+  </div>
+
+  <div id="tab-churn" class="tab">
+    <div class="note">Anchored on <b>Active week</b> &mdash; the same weekly-active population used in the Weekly Rider Mix tab (delivered &ge;1 order that week), not an Onboarding or Activation cohort. Onboarded is not shown here: Onboarded(week) and Activated(week) are independently-dated volumes for different people in different weeks, so they don't nest inside a single row and were confusing side by side. W+0 in this table is the row's <b>full active headcount</b> for that week &mdash; it matches the &ldquo;Active total&rdquo; column in Weekly Rider Mix exactly (verified: 0 mismatches across all 8 weeks). W+k = of that exact same group of riders active in week W, how many are <em>also</em> active k weeks later &mdash; so this includes New + Retained + Resurrected riders as the base, not just newly-activated ones. Rider activity data (delivered_orders) only goes back to <b id="act-min"></b>, so cohorts before that show blank cells &mdash; a data-availability gap, not zero activity. Grey/blank cells past the right edge simply haven't happened yet.</div>
+    <div class="card">
+      <h3>Retention Triangle &mdash; raw active riders</h3>
+      <div class="desc">Rows = calendar week (Active). Columns = weeks after that week (W+0&hellip;W+13). Cell = of the riders active in the row's week, how many are still/again active that many weeks later. W+0 = that week's total active riders (100% by definition, matches Weekly Rider Mix).</div>
+      <div class="tblwrap" id="triangle-raw"></div>
+    </div>
+    <div class="card">
+      <h3>Cohort Retention Triangle &mdash; % of cohort size</h3>
+      <div class="tblwrap" id="triangle-pct"></div>
+    </div>
+  </div>
+
+  <div id="tab-city" class="tab">
+    <div class="note" id="city-note"></div>
+    <div class="card">
+      <h3>Funnel drop-off by city</h3>
+      <div class="desc">FR-level cut pending clarification on what &ldquo;FR&rdquo; refers to &mdash; ping me and I'll add it here.</div>
+      <div class="tblwrap"><table id="tbl-city"></table></div>
+    </div>
+  </div>
+
+  <footer>Built from tasks.v_funnel_riders / tasks.v_funnel_weekly_activity (Supabase). Stage-wise per-rider date export and Activation&rarr;Churn deep-dive to follow.</footer>
+</div>
+
+<script>
+const D = {"kpis": {"lead": 26438, "installed": 25030, "kyc_initiated": 15424, "kyc_done": 11706, "onboarded": 8349, "activated": 2433, "bd": 7022, "nonbd": 1327}, "city_funnel": [{"city": "Unknown", "lead": 20609, "installed": 20609, "kyc_initiated": 11591, "kyc_done": 8181, "onboarded": 4927, "activated": 1506, "bd_cnt": 3734, "nonbd_cnt": 1193}, {"city": "Hyd-Fathe Nagar", "lead": 1107, "installed": 613, "kyc_initiated": 496, "kyc_done": 430, "onboarded": 405, "activated": 121, "bd_cnt": 385, "nonbd_cnt": 20}, {"city": "BLR - HSR", "lead": 382, "installed": 317, "kyc_initiated": 276, "kyc_done": 254, "onboarded": 236, "activated": 71, "bd_cnt": 231, "nonbd_cnt": 5}, {"city": "NCR - Rohini", "lead": 317, "installed": 195, "kyc_initiated": 157, "kyc_done": 145, "onboarded": 144, "activated": 25, "bd_cnt": 141, "nonbd_cnt": 3}, {"city": "BLR - Yeshwanthpur", "lead": 273, "installed": 234, "kyc_initiated": 205, "kyc_done": 185, "onboarded": 179, "activated": 48, "bd_cnt": 171, "nonbd_cnt": 8}, {"city": "NCR - Okhla", "lead": 265, "installed": 164, "kyc_initiated": 137, "kyc_done": 124, "onboarded": 124, "activated": 35, "bd_cnt": 120, "nonbd_cnt": 4}, {"city": "BLR - Banaswadi", "lead": 250, "installed": 246, "kyc_initiated": 231, "kyc_done": 220, "onboarded": 217, "activated": 53, "bd_cnt": 207, "nonbd_cnt": 10}, {"city": "BLR - Bellandur", "lead": 237, "installed": 219, "kyc_initiated": 206, "kyc_done": 188, "onboarded": 184, "activated": 59, "bd_cnt": 175, "nonbd_cnt": 9}, {"city": "BLR - Hebbal", "lead": 237, "installed": 222, "kyc_initiated": 201, "kyc_done": 183, "onboarded": 176, "activated": 56, "bd_cnt": 151, "nonbd_cnt": 25}, {"city": "BLR - Hoodi", "lead": 234, "installed": 182, "kyc_initiated": 153, "kyc_done": 129, "onboarded": 123, "activated": 40, "bd_cnt": 112, "nonbd_cnt": 11}, {"city": "NCR - Indirapuram", "lead": 229, "installed": 178, "kyc_initiated": 151, "kyc_done": 137, "onboarded": 136, "activated": 26, "bd_cnt": 136, "nonbd_cnt": 0}, {"city": "KSR_Hub", "lead": 220, "installed": 212, "kyc_initiated": 181, "kyc_done": 165, "onboarded": 158, "activated": 54, "bd_cnt": 150, "nonbd_cnt": 8}, {"city": "NCR-Rohini", "lead": 218, "installed": 137, "kyc_initiated": 123, "kyc_done": 121, "onboarded": 121, "activated": 9, "bd_cnt": 121, "nonbd_cnt": 0}, {"city": "BLR- Bilekahalli", "lead": 215, "installed": 177, "kyc_initiated": 143, "kyc_done": 129, "onboarded": 125, "activated": 39, "bd_cnt": 115, "nonbd_cnt": 10}, {"city": "BLR - RR Nagar", "lead": 206, "installed": 185, "kyc_initiated": 159, "kyc_done": 150, "onboarded": 144, "activated": 39, "bd_cnt": 140, "nonbd_cnt": 4}, {"city": "BLR-RR Nagar", "lead": 144, "installed": 116, "kyc_initiated": 104, "kyc_done": 104, "onboarded": 104, "activated": 35, "bd_cnt": 101, "nonbd_cnt": 3}, {"city": "NCR-Okhla", "lead": 140, "installed": 115, "kyc_initiated": 101, "kyc_done": 97, "onboarded": 96, "activated": 17, "bd_cnt": 96, "nonbd_cnt": 0}, {"city": "Hyd-Miyapur", "lead": 140, "installed": 65, "kyc_initiated": 57, "kyc_done": 52, "onboarded": 46, "activated": 14, "bd_cnt": 44, "nonbd_cnt": 2}, {"city": "BLR-Banaswadi", "lead": 135, "installed": 125, "kyc_initiated": 117, "kyc_done": 114, "onboarded": 114, "activated": 29, "bd_cnt": 111, "nonbd_cnt": 3}, {"city": "BLR-HSR", "lead": 124, "installed": 106, "kyc_initiated": 100, "kyc_done": 96, "onboarded": 93, "activated": 17, "bd_cnt": 90, "nonbd_cnt": 3}, {"city": "BLR-Hebbal", "lead": 113, "installed": 110, "kyc_initiated": 98, "kyc_done": 98, "onboarded": 97, "activated": 37, "bd_cnt": 95, "nonbd_cnt": 2}, {"city": "BLR-Yeshwanthpur", "lead": 96, "installed": 72, "kyc_initiated": 62, "kyc_done": 58, "onboarded": 57, "activated": 17, "bd_cnt": 56, "nonbd_cnt": 1}, {"city": "BLR-Hoodi", "lead": 78, "installed": 68, "kyc_initiated": 64, "kyc_done": 61, "onboarded": 61, "activated": 19, "bd_cnt": 61, "nonbd_cnt": 0}, {"city": "NCR - Saket", "lead": 78, "installed": 46, "kyc_initiated": 41, "kyc_done": 36, "onboarded": 36, "activated": 8, "bd_cnt": 36, "nonbd_cnt": 0}, {"city": "NCR - Gurgaon", "lead": 70, "installed": 61, "kyc_initiated": 53, "kyc_done": 49, "onboarded": 49, "activated": 9, "bd_cnt": 49, "nonbd_cnt": 0}, {"city": "BLR-Bilekahalli", "lead": 55, "installed": 47, "kyc_initiated": 43, "kyc_done": 41, "onboarded": 41, "activated": 10, "bd_cnt": 41, "nonbd_cnt": 0}, {"city": "NCR-Gurgaon", "lead": 54, "installed": 51, "kyc_initiated": 45, "kyc_done": 43, "onboarded": 43, "activated": 6, "bd_cnt": 43, "nonbd_cnt": 0}, {"city": "Mum-Sakinaka", "lead": 54, "installed": 35, "kyc_initiated": 21, "kyc_done": 19, "onboarded": 19, "activated": 6, "bd_cnt": 19, "nonbd_cnt": 0}, {"city": "BLR-Office", "lead": 44, "installed": 36, "kyc_initiated": 31, "kyc_done": 27, "onboarded": 25, "activated": 10, "bd_cnt": 24, "nonbd_cnt": 1}, {"city": "BLR-Bellandur", "lead": 37, "installed": 36, "kyc_initiated": 35, "kyc_done": 34, "onboarded": 34, "activated": 11, "bd_cnt": 32, "nonbd_cnt": 2}, {"city": "BLR - Office", "lead": 34, "installed": 28, "kyc_initiated": 25, "kyc_done": 22, "onboarded": 21, "activated": 4, "bd_cnt": 21, "nonbd_cnt": 0}, {"city": "NCR-Indirapuram", "lead": 21, "installed": 20, "kyc_initiated": 15, "kyc_done": 12, "onboarded": 12, "activated": 3, "bd_cnt": 12, "nonbd_cnt": 0}, {"city": "NCR-Saket", "lead": 11, "installed": 3, "kyc_initiated": 2, "kyc_done": 2, "onboarded": 2, "activated": 0, "bd_cnt": 2, "nonbd_cnt": 0}, {"city": "Hyd-Miyapu", "lead": 1, "installed": 0, "kyc_initiated": 0, "kyc_done": 0, "onboarded": 0, "activated": 0, "bd_cnt": 0, "nonbd_cnt": 0}], "deposit_tier": [{"bd_flag": "BD", "tier": "0 / no ProRouting deposit", "cnt": 7022}, {"bd_flag": "Non-BD", "tier": "399", "cnt": 265}, {"bd_flag": "Non-BD", "tier": "99", "cnt": 1062}], "weekly_mix": [{"week_start": "2026-06-29", "bucket": "new", "cnt": 255}, {"week_start": "2026-07-06", "bucket": "new", "cnt": 235}, {"week_start": "2026-07-06", "bucket": "retained", "cnt": 144}, {"week_start": "2026-07-13", "bucket": "new", "cnt": 353}, {"week_start": "2026-07-13", "bucket": "retained", "cnt": 218}, {"week_start": "2026-07-20", "bucket": "new", "cnt": 493}, {"week_start": "2026-07-20", "bucket": "resurrected", "cnt": 8}, {"week_start": "2026-07-20", "bucket": "retained", "cnt": 244}, {"week_start": "2026-07-27", "bucket": "new", "cnt": 344}, {"week_start": "2026-07-27", "bucket": "resurrected", "cnt": 13}, {"week_start": "2026-07-27", "bucket": "retained", "cnt": 263}, {"week_start": "2026-08-03", "bucket": "new", "cnt": 386}, {"week_start": "2026-08-03", "bucket": "resurrected", "cnt": 22}, {"week_start": "2026-08-03", "bucket": "retained", "cnt": 282}, {"week_start": "2026-08-10", "bucket": "new", "cnt": 318}, {"week_start": "2026-08-10", "bucket": "resurrected", "cnt": 42}, {"week_start": "2026-08-10", "bucket": "retained", "cnt": 287}, {"week_start": "2026-08-17", "bucket": "new", "cnt": 49}, {"week_start": "2026-08-17", "bucket": "resurrected", "cnt": 3}, {"week_start": "2026-08-17", "bucket": "retained", "cnt": 132}], "churned": [{"week_start": "2026-07-06", "cnt": 111}, {"week_start": "2026-07-13", "cnt": 181}, {"week_start": "2026-07-20", "cnt": 349}, {"week_start": "2026-07-27", "cnt": 517}, {"week_start": "2026-08-03", "cnt": 385}, {"week_start": "2026-08-10", "cnt": 439}, {"week_start": "2026-08-17", "cnt": 525}], "cohort_sizes": [{"cohort_week": "2026-06-29", "active_cnt": 255}, {"cohort_week": "2026-07-06", "active_cnt": 379}, {"cohort_week": "2026-07-13", "active_cnt": 571}, {"cohort_week": "2026-07-20", "active_cnt": 745}, {"cohort_week": "2026-07-27", "active_cnt": 620}, {"cohort_week": "2026-08-03", "active_cnt": 690}, {"cohort_week": "2026-08-10", "active_cnt": 647}, {"cohort_week": "2026-08-17", "active_cnt": 184}], "cohort_triangle": [{"cohort_week": "2026-06-29", "wk_offset": 0, "active_cnt": 255}, {"cohort_week": "2026-06-29", "wk_offset": 1, "active_cnt": 144}, {"cohort_week": "2026-06-29", "wk_offset": 2, "active_cnt": 93}, {"cohort_week": "2026-06-29", "wk_offset": 3, "active_cnt": 65}, {"cohort_week": "2026-06-29", "wk_offset": 4, "active_cnt": 53}, {"cohort_week": "2026-06-29", "wk_offset": 5, "active_cnt": 43}, {"cohort_week": "2026-06-29", "wk_offset": 6, "active_cnt": 35}, {"cohort_week": "2026-06-29", "wk_offset": 7, "active_cnt": 9}, {"cohort_week": "2026-07-06", "wk_offset": 0, "active_cnt": 379}, {"cohort_week": "2026-07-06", "wk_offset": 1, "active_cnt": 198}, {"cohort_week": "2026-07-06", "wk_offset": 2, "active_cnt": 117}, {"cohort_week": "2026-07-06", "wk_offset": 3, "active_cnt": 77}, {"cohort_week": "2026-07-06", "wk_offset": 4, "active_cnt": 62}, {"cohort_week": "2026-07-06", "wk_offset": 5, "active_cnt": 61}, {"cohort_week": "2026-07-06", "wk_offset": 6, "active_cnt": 15}, {"cohort_week": "2026-07-13", "wk_offset": 0, "active_cnt": 571}, {"cohort_week": "2026-07-13", "wk_offset": 1, "active_cnt": 222}, {"cohort_week": "2026-07-13", "wk_offset": 2, "active_cnt": 135}, {"cohort_week": "2026-07-13", "wk_offset": 3, "active_cnt": 101}, {"cohort_week": "2026-07-13", "wk_offset": 4, "active_cnt": 77}, {"cohort_week": "2026-07-13", "wk_offset": 5, "active_cnt": 23}, {"cohort_week": "2026-07-20", "wk_offset": 0, "active_cnt": 745}, {"cohort_week": "2026-07-20", "wk_offset": 1, "active_cnt": 228}, {"cohort_week": "2026-07-20", "wk_offset": 2, "active_cnt": 151}, {"cohort_week": "2026-07-20", "wk_offset": 3, "active_cnt": 97}, {"cohort_week": "2026-07-20", "wk_offset": 4, "active_cnt": 30}, {"cohort_week": "2026-07-27", "wk_offset": 0, "active_cnt": 620}, {"cohort_week": "2026-07-27", "wk_offset": 1, "active_cnt": 235}, {"cohort_week": "2026-07-27", "wk_offset": 2, "active_cnt": 147}, {"cohort_week": "2026-07-27", "wk_offset": 3, "active_cnt": 47}, {"cohort_week": "2026-08-03", "wk_offset": 0, "active_cnt": 690}, {"cohort_week": "2026-08-03", "wk_offset": 1, "active_cnt": 251}, {"cohort_week": "2026-08-03", "wk_offset": 2, "active_cnt": 70}, {"cohort_week": "2026-08-10", "wk_offset": 0, "active_cnt": 647}, {"cohort_week": "2026-08-10", "wk_offset": 1, "active_cnt": 122}, {"cohort_week": "2026-08-17", "wk_offset": 0, "active_cnt": 184}], "activity_range": {"min_week": "2026-06-29", "max_week": "2026-08-17"}, "funnel_cohort": [{"cohort_week": "2026-02-02", "lead_cnt": 9, "installed_cnt": 9, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-02-09", "lead_cnt": 2, "installed_cnt": 2, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-02-16", "lead_cnt": 6, "installed_cnt": 6, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-02-23", "lead_cnt": 35, "installed_cnt": 35, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-03-02", "lead_cnt": 44, "installed_cnt": 44, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-03-09", "lead_cnt": 47, "installed_cnt": 47, "kyc_initiated_cnt": 3, "kyc_done_cnt": 3, "onboarded_cnt": 3, "activated_cnt": 3}, {"cohort_week": "2026-03-16", "lead_cnt": 8, "installed_cnt": 8, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-03-23", "lead_cnt": 24, "installed_cnt": 24, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-03-30", "lead_cnt": 17, "installed_cnt": 17, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-04-06", "lead_cnt": 14, "installed_cnt": 14, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-04-13", "lead_cnt": 30, "installed_cnt": 30, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-04-20", "lead_cnt": 29, "installed_cnt": 24, "kyc_initiated_cnt": 6, "kyc_done_cnt": 5, "onboarded_cnt": 4, "activated_cnt": 3}, {"cohort_week": "2026-04-27", "lead_cnt": 22, "installed_cnt": 14, "kyc_initiated_cnt": 5, "kyc_done_cnt": 4, "onboarded_cnt": 3, "activated_cnt": 1}, {"cohort_week": "2026-05-04", "lead_cnt": 26, "installed_cnt": 21, "kyc_initiated_cnt": 5, "kyc_done_cnt": 5, "onboarded_cnt": 5, "activated_cnt": 2}, {"cohort_week": "2026-05-11", "lead_cnt": 403, "installed_cnt": 394, "kyc_initiated_cnt": 137, "kyc_done_cnt": 98, "onboarded_cnt": 78, "activated_cnt": 13}, {"cohort_week": "2026-05-18", "lead_cnt": 889, "installed_cnt": 872, "kyc_initiated_cnt": 458, "kyc_done_cnt": 317, "onboarded_cnt": 221, "activated_cnt": 46}, {"cohort_week": "2026-05-25", "lead_cnt": 932, "installed_cnt": 931, "kyc_initiated_cnt": 513, "kyc_done_cnt": 354, "onboarded_cnt": 216, "activated_cnt": 41}, {"cohort_week": "2026-06-01", "lead_cnt": 1022, "installed_cnt": 1019, "kyc_initiated_cnt": 588, "kyc_done_cnt": 376, "onboarded_cnt": 205, "activated_cnt": 58}, {"cohort_week": "2026-06-08", "lead_cnt": 1542, "installed_cnt": 1519, "kyc_initiated_cnt": 1074, "kyc_done_cnt": 798, "onboarded_cnt": 449, "activated_cnt": 105}, {"cohort_week": "2026-06-15", "lead_cnt": 1741, "installed_cnt": 1667, "kyc_initiated_cnt": 979, "kyc_done_cnt": 761, "onboarded_cnt": 498, "activated_cnt": 145}, {"cohort_week": "2026-06-22", "lead_cnt": 1416, "installed_cnt": 1323, "kyc_initiated_cnt": 885, "kyc_done_cnt": 705, "onboarded_cnt": 582, "activated_cnt": 150}, {"cohort_week": "2026-06-29", "lead_cnt": 1245, "installed_cnt": 1162, "kyc_initiated_cnt": 788, "kyc_done_cnt": 605, "onboarded_cnt": 462, "activated_cnt": 171}, {"cohort_week": "2026-07-06", "lead_cnt": 1384, "installed_cnt": 1294, "kyc_initiated_cnt": 944, "kyc_done_cnt": 662, "onboarded_cnt": 495, "activated_cnt": 188}, {"cohort_week": "2026-07-13", "lead_cnt": 2989, "installed_cnt": 2810, "kyc_initiated_cnt": 2097, "kyc_done_cnt": 1435, "onboarded_cnt": 1013, "activated_cnt": 337}, {"cohort_week": "2026-07-20", "lead_cnt": 3528, "installed_cnt": 3231, "kyc_initiated_cnt": 2384, "kyc_done_cnt": 1717, "onboarded_cnt": 1257, "activated_cnt": 426}, {"cohort_week": "2026-07-27", "lead_cnt": 3304, "installed_cnt": 3136, "kyc_initiated_cnt": 2180, "kyc_done_cnt": 1817, "onboarded_cnt": 1297, "activated_cnt": 311}, {"cohort_week": "2026-08-03", "lead_cnt": 2838, "installed_cnt": 2639, "kyc_initiated_cnt": 1785, "kyc_done_cnt": 1526, "onboarded_cnt": 1046, "activated_cnt": 271}, {"cohort_week": "2026-08-10", "lead_cnt": 2353, "installed_cnt": 2243, "kyc_initiated_cnt": 510, "kyc_done_cnt": 445, "onboarded_cnt": 442, "activated_cnt": 144}, {"cohort_week": "2026-08-17", "lead_cnt": 529, "installed_cnt": 495, "kyc_initiated_cnt": 79, "kyc_done_cnt": 69, "onboarded_cnt": 69, "activated_cnt": 14}], "funnel_cohort_seg": [{"cohort_week": "2026-02-02", "seg": "BD", "lead_cnt": 9, "installed_cnt": 9, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-02-09", "seg": "BD", "lead_cnt": 2, "installed_cnt": 2, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-02-16", "seg": "BD", "lead_cnt": 6, "installed_cnt": 6, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-02-23", "seg": "BD", "lead_cnt": 35, "installed_cnt": 35, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-03-02", "seg": "BD", "lead_cnt": 43, "installed_cnt": 43, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-03-02", "seg": "NonBD-399", "lead_cnt": 1, "installed_cnt": 1, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-03-09", "seg": "BD", "lead_cnt": 45, "installed_cnt": 45, "kyc_initiated_cnt": 2, "kyc_done_cnt": 2, "onboarded_cnt": 2, "activated_cnt": 2}, {"cohort_week": "2026-03-09", "seg": "NonBD-99", "lead_cnt": 2, "installed_cnt": 2, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-03-16", "seg": "BD", "lead_cnt": 8, "installed_cnt": 8, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-03-23", "seg": "BD", "lead_cnt": 24, "installed_cnt": 24, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-03-30", "seg": "BD", "lead_cnt": 15, "installed_cnt": 15, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-03-30", "seg": "NonBD-99", "lead_cnt": 2, "installed_cnt": 2, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-04-06", "seg": "BD", "lead_cnt": 14, "installed_cnt": 14, "kyc_initiated_cnt": 0, "kyc_done_cnt": 0, "onboarded_cnt": 0, "activated_cnt": 0}, {"cohort_week": "2026-04-13", "seg": "BD", "lead_cnt": 30, "installed_cnt": 30, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-04-20", "seg": "BD", "lead_cnt": 29, "installed_cnt": 24, "kyc_initiated_cnt": 6, "kyc_done_cnt": 5, "onboarded_cnt": 4, "activated_cnt": 3}, {"cohort_week": "2026-04-27", "seg": "BD", "lead_cnt": 22, "installed_cnt": 14, "kyc_initiated_cnt": 5, "kyc_done_cnt": 4, "onboarded_cnt": 3, "activated_cnt": 1}, {"cohort_week": "2026-05-04", "seg": "BD", "lead_cnt": 25, "installed_cnt": 20, "kyc_initiated_cnt": 4, "kyc_done_cnt": 4, "onboarded_cnt": 4, "activated_cnt": 1}, {"cohort_week": "2026-05-04", "seg": "NonBD-99", "lead_cnt": 1, "installed_cnt": 1, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-05-11", "seg": "BD", "lead_cnt": 398, "installed_cnt": 389, "kyc_initiated_cnt": 132, "kyc_done_cnt": 93, "onboarded_cnt": 73, "activated_cnt": 10}, {"cohort_week": "2026-05-11", "seg": "NonBD-99", "lead_cnt": 5, "installed_cnt": 5, "kyc_initiated_cnt": 5, "kyc_done_cnt": 5, "onboarded_cnt": 5, "activated_cnt": 3}, {"cohort_week": "2026-05-18", "seg": "BD", "lead_cnt": 877, "installed_cnt": 860, "kyc_initiated_cnt": 446, "kyc_done_cnt": 305, "onboarded_cnt": 209, "activated_cnt": 42}, {"cohort_week": "2026-05-18", "seg": "NonBD-399", "lead_cnt": 2, "installed_cnt": 2, "kyc_initiated_cnt": 2, "kyc_done_cnt": 2, "onboarded_cnt": 2, "activated_cnt": 1}, {"cohort_week": "2026-05-18", "seg": "NonBD-99", "lead_cnt": 10, "installed_cnt": 10, "kyc_initiated_cnt": 10, "kyc_done_cnt": 10, "onboarded_cnt": 10, "activated_cnt": 3}, {"cohort_week": "2026-05-25", "seg": "BD", "lead_cnt": 921, "installed_cnt": 920, "kyc_initiated_cnt": 502, "kyc_done_cnt": 343, "onboarded_cnt": 205, "activated_cnt": 38}, {"cohort_week": "2026-05-25", "seg": "NonBD-399", "lead_cnt": 1, "installed_cnt": 1, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 0}, {"cohort_week": "2026-05-25", "seg": "NonBD-99", "lead_cnt": 10, "installed_cnt": 10, "kyc_initiated_cnt": 10, "kyc_done_cnt": 10, "onboarded_cnt": 10, "activated_cnt": 3}, {"cohort_week": "2026-06-01", "seg": "BD", "lead_cnt": 1010, "installed_cnt": 1007, "kyc_initiated_cnt": 576, "kyc_done_cnt": 364, "onboarded_cnt": 193, "activated_cnt": 52}, {"cohort_week": "2026-06-01", "seg": "NonBD-399", "lead_cnt": 1, "installed_cnt": 1, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 0}, {"cohort_week": "2026-06-01", "seg": "NonBD-99", "lead_cnt": 11, "installed_cnt": 11, "kyc_initiated_cnt": 11, "kyc_done_cnt": 11, "onboarded_cnt": 11, "activated_cnt": 6}, {"cohort_week": "2026-06-08", "seg": "BD", "lead_cnt": 1508, "installed_cnt": 1485, "kyc_initiated_cnt": 1041, "kyc_done_cnt": 765, "onboarded_cnt": 416, "activated_cnt": 89}, {"cohort_week": "2026-06-08", "seg": "NonBD-399", "lead_cnt": 4, "installed_cnt": 4, "kyc_initiated_cnt": 4, "kyc_done_cnt": 4, "onboarded_cnt": 4, "activated_cnt": 3}, {"cohort_week": "2026-06-08", "seg": "NonBD-99", "lead_cnt": 30, "installed_cnt": 30, "kyc_initiated_cnt": 29, "kyc_done_cnt": 29, "onboarded_cnt": 29, "activated_cnt": 13}, {"cohort_week": "2026-06-15", "seg": "BD", "lead_cnt": 1672, "installed_cnt": 1598, "kyc_initiated_cnt": 912, "kyc_done_cnt": 694, "onboarded_cnt": 431, "activated_cnt": 111}, {"cohort_week": "2026-06-15", "seg": "NonBD-399", "lead_cnt": 1, "installed_cnt": 1, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-06-15", "seg": "NonBD-99", "lead_cnt": 68, "installed_cnt": 68, "kyc_initiated_cnt": 66, "kyc_done_cnt": 66, "onboarded_cnt": 66, "activated_cnt": 33}, {"cohort_week": "2026-06-22", "seg": "BD", "lead_cnt": 1265, "installed_cnt": 1172, "kyc_initiated_cnt": 738, "kyc_done_cnt": 558, "onboarded_cnt": 435, "activated_cnt": 91}, {"cohort_week": "2026-06-22", "seg": "NonBD-399", "lead_cnt": 2, "installed_cnt": 2, "kyc_initiated_cnt": 2, "kyc_done_cnt": 2, "onboarded_cnt": 2, "activated_cnt": 1}, {"cohort_week": "2026-06-22", "seg": "NonBD-99", "lead_cnt": 149, "installed_cnt": 149, "kyc_initiated_cnt": 145, "kyc_done_cnt": 145, "onboarded_cnt": 145, "activated_cnt": 58}, {"cohort_week": "2026-06-29", "seg": "BD", "lead_cnt": 1094, "installed_cnt": 1011, "kyc_initiated_cnt": 639, "kyc_done_cnt": 456, "onboarded_cnt": 313, "activated_cnt": 78}, {"cohort_week": "2026-06-29", "seg": "NonBD-399", "lead_cnt": 2, "installed_cnt": 2, "kyc_initiated_cnt": 2, "kyc_done_cnt": 2, "onboarded_cnt": 2, "activated_cnt": 1}, {"cohort_week": "2026-06-29", "seg": "NonBD-99", "lead_cnt": 149, "installed_cnt": 149, "kyc_initiated_cnt": 147, "kyc_done_cnt": 147, "onboarded_cnt": 147, "activated_cnt": 92}, {"cohort_week": "2026-07-06", "seg": "BD", "lead_cnt": 1234, "installed_cnt": 1144, "kyc_initiated_cnt": 805, "kyc_done_cnt": 523, "onboarded_cnt": 356, "activated_cnt": 108}, {"cohort_week": "2026-07-06", "seg": "NonBD-399", "lead_cnt": 3, "installed_cnt": 3, "kyc_initiated_cnt": 3, "kyc_done_cnt": 3, "onboarded_cnt": 3, "activated_cnt": 1}, {"cohort_week": "2026-07-06", "seg": "NonBD-99", "lead_cnt": 147, "installed_cnt": 147, "kyc_initiated_cnt": 136, "kyc_done_cnt": 136, "onboarded_cnt": 136, "activated_cnt": 79}, {"cohort_week": "2026-07-13", "seg": "BD", "lead_cnt": 2713, "installed_cnt": 2534, "kyc_initiated_cnt": 1829, "kyc_done_cnt": 1167, "onboarded_cnt": 745, "activated_cnt": 201}, {"cohort_week": "2026-07-13", "seg": "NonBD-399", "lead_cnt": 4, "installed_cnt": 4, "kyc_initiated_cnt": 4, "kyc_done_cnt": 4, "onboarded_cnt": 4, "activated_cnt": 3}, {"cohort_week": "2026-07-13", "seg": "NonBD-99", "lead_cnt": 272, "installed_cnt": 272, "kyc_initiated_cnt": 264, "kyc_done_cnt": 264, "onboarded_cnt": 264, "activated_cnt": 133}, {"cohort_week": "2026-07-20", "seg": "BD", "lead_cnt": 3280, "installed_cnt": 2983, "kyc_initiated_cnt": 2140, "kyc_done_cnt": 1473, "onboarded_cnt": 1013, "activated_cnt": 299}, {"cohort_week": "2026-07-20", "seg": "NonBD-399", "lead_cnt": 23, "installed_cnt": 23, "kyc_initiated_cnt": 22, "kyc_done_cnt": 22, "onboarded_cnt": 22, "activated_cnt": 15}, {"cohort_week": "2026-07-20", "seg": "NonBD-99", "lead_cnt": 225, "installed_cnt": 225, "kyc_initiated_cnt": 222, "kyc_done_cnt": 222, "onboarded_cnt": 222, "activated_cnt": 112}, {"cohort_week": "2026-07-27", "seg": "BD", "lead_cnt": 3220, "installed_cnt": 3052, "kyc_initiated_cnt": 2096, "kyc_done_cnt": 1733, "onboarded_cnt": 1213, "activated_cnt": 258}, {"cohort_week": "2026-07-27", "seg": "NonBD-399", "lead_cnt": 78, "installed_cnt": 78, "kyc_initiated_cnt": 78, "kyc_done_cnt": 78, "onboarded_cnt": 78, "activated_cnt": 52}, {"cohort_week": "2026-07-27", "seg": "NonBD-99", "lead_cnt": 6, "installed_cnt": 6, "kyc_initiated_cnt": 6, "kyc_done_cnt": 6, "onboarded_cnt": 6, "activated_cnt": 1}, {"cohort_week": "2026-08-03", "seg": "BD", "lead_cnt": 2748, "installed_cnt": 2549, "kyc_initiated_cnt": 1696, "kyc_done_cnt": 1437, "onboarded_cnt": 957, "activated_cnt": 211}, {"cohort_week": "2026-08-03", "seg": "NonBD-399", "lead_cnt": 85, "installed_cnt": 85, "kyc_initiated_cnt": 84, "kyc_done_cnt": 84, "onboarded_cnt": 84, "activated_cnt": 56}, {"cohort_week": "2026-08-03", "seg": "NonBD-99", "lead_cnt": 5, "installed_cnt": 5, "kyc_initiated_cnt": 5, "kyc_done_cnt": 5, "onboarded_cnt": 5, "activated_cnt": 4}, {"cohort_week": "2026-08-10", "seg": "BD", "lead_cnt": 2288, "installed_cnt": 2178, "kyc_initiated_cnt": 455, "kyc_done_cnt": 392, "onboarded_cnt": 389, "activated_cnt": 104}, {"cohort_week": "2026-08-10", "seg": "NonBD-399", "lead_cnt": 64, "installed_cnt": 64, "kyc_initiated_cnt": 54, "kyc_done_cnt": 52, "onboarded_cnt": 52, "activated_cnt": 39}, {"cohort_week": "2026-08-10", "seg": "NonBD-99", "lead_cnt": 1, "installed_cnt": 1, "kyc_initiated_cnt": 1, "kyc_done_cnt": 1, "onboarded_cnt": 1, "activated_cnt": 1}, {"cohort_week": "2026-08-17", "seg": "BD", "lead_cnt": 519, "installed_cnt": 485, "kyc_initiated_cnt": 69, "kyc_done_cnt": 59, "onboarded_cnt": 59, "activated_cnt": 11}, {"cohort_week": "2026-08-17", "seg": "NonBD-399", "lead_cnt": 8, "installed_cnt": 8, "kyc_initiated_cnt": 8, "kyc_done_cnt": 8, "onboarded_cnt": 8, "activated_cnt": 1}, {"cohort_week": "2026-08-17", "seg": "NonBD-99", "lead_cnt": 2, "installed_cnt": 2, "kyc_initiated_cnt": 2, "kyc_done_cnt": 2, "onboarded_cnt": 2, "activated_cnt": 2}], "cascade_note": {"fixed": true, "leads_source_corrected": true, "method": "2026-08-19: Lead definition tightened per exec instruction. tasks.v_funnel_riders' leads CTE now only counts a funnel_leads row as a real lead if interested_in ILIKE '%bounce%' OR interested_in ILIKE '%not intere%' OR is_backfilled=true -- excludes rows recruited for other gig platforms (Zepto, Porter, Swiggy, Rapido, Uber, Bigbasket, etc.) that shared the same lead table as cross-platform noise, not genuine Bounce Task touchpoints. Riders who no longer qualify for a real lead fall through to the existing backfill cascade and are counted as Organic (lead_backfilled=true) instead of being dropped. Net effect: Lead 30,691 -> 26,505 (-4,186, -13.6%); Installed/KYC/Onboarded/Activated unchanged (cascade stages below Lead are independent of the lead-capture record). Also fixed a bug in tasks.materialize_funnel_backfill(): its lead-insert guard checked for ANY funnel_leads row for a phone, not one qualifying under the new interest filter, so it was silently skipping backfill inserts for riders whose only real lead row was an excluded interest (e.g. Zepto) -- fixed and re-run, inserting 2,046 correct Organic backfill rows. Follow-up (same day): 'Not Interested' (any spelling, including the 1,351-row typo 'Not Intersted' that the interest filter's ILIKE pattern never matched in the first place) was also dropped from the Lead-qualifying condition entirely -- a rider who declined at the door and never installed no longer counts as a Lead. Riders who said 'not interested' but installed anyway still count via the reached_installed fallback (127 of 210 such riders, unaffected). Net effect of this second change: Lead 26,505 -> 26,428 (-77, the riders who declined and never came back). materialize_funnel_backfill() guard updated to match; re-run inserted 82 new Organic backfill rows for the newly-excluded phones. Second follow-up (same day): full source reload executed via the funnel-csv-backfill edge function (bypassing manual SQL entry) against fresh exports of both sources -- Source 1 CSV re-pulled from Downloads (13,111 valid, unchanged), Source 2 gig_leads_clean_v2 grown from 4,298 to 4,368 rows. Data model split into tasks.contacts (one row per phone, has_bounce_task_interest/is_organic flags) + tasks.leads (one row per raw submission, referred_by_fr captured from Referred-by-Name/spoc_name columns, 58% coverage). v_funnel_riders rewired to source from contacts+leads. Net effect: Lead 26,428 -> 26,438 (+10, from the Source 2 growth); Installed/KYC/Onboarded/Activated exactly unchanged (25,030/15,424/11,706/8,349/2,433), confirming the migration preserved cascade integrity.", "reconciliation": {"Lead": 26438, "Installed": 25030, "KYC_initiated": 15424, "KYC_done": 11706, "Onboarded": 8349, "Activated": 2433, "BD": 7022, "NonBD": 1327}, "note_city_quality": "City coverage: 22.5% known (5,978/26,505; 20,527 'Unknown') under the tightened Lead definition -- unchanged in kind from before, since city capture depends on the 3PL onboarding form, not the interest filter.", "note_segmentation": "funnel_cohort_seg approximates BD/Non-BD from deposit_amount (99/399 -> Non-BD; else BD) applied to all leads, since the ledger-based bd_flag signal used elsewhere is only computed for riders who reach Onboarded and isn't exposed on earlier-stage rows. The onboarded-stage totals (BD 7,022 / Non-BD 1,327) match the authoritative bd_flag column exactly."}, "dar_war": [{"week_start": "2026-06-29", "war": 255, "avg_dar": 112.0, "days_with_data": 5, "is_partial": true}, {"week_start": "2026-07-06", "war": 379, "avg_dar": 122.4, "days_with_data": 7, "is_partial": false}, {"week_start": "2026-07-13", "war": 571, "avg_dar": 180.0, "days_with_data": 6, "is_partial": true}, {"week_start": "2026-07-20", "war": 745, "avg_dar": 197.1, "days_with_data": 7, "is_partial": false}, {"week_start": "2026-07-27", "war": 620, "avg_dar": 169.6, "days_with_data": 7, "is_partial": false}, {"week_start": "2026-08-03", "war": 690, "avg_dar": 202.4, "days_with_data": 7, "is_partial": false}, {"week_start": "2026-08-10", "war": 647, "avg_dar": 203.7, "days_with_data": 7, "is_partial": false}, {"week_start": "2026-08-17", "war": 184, "avg_dar": 97.0, "days_with_data": 2, "is_partial": true}]};
+const fmt = n => n.toLocaleString();
+const pct = (a,b) => b ? (100*a/b).toFixed(1)+'%' : '&mdash;';
+const COLORS = ['#4C72B0','#DD8452','#55A868','#C44E52','#8172B3','#937860'];
+
+// ---------- tabs ----------
+const TABS = [['exec','Summary'],['overview','Overview & Funnel'],['bd','BD vs Non-BD'],['mix','Weekly Rider Mix'],['riders','Active Riders Deep-dive'],['churn','Churn Matrix'],['city','City Cuts']];
+const nav = document.getElementById('tabnav');
+TABS.forEach(([id,label],i)=>{
+  const b=document.createElement('button');
+  b.textContent=label; b.onclick=()=>showTab(id);
+  b.id='navbtn-'+id;
+  nav.appendChild(b);
+});
+function showTab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  document.getElementById('navbtn-'+id).classList.add('active');
+  // The week-range/segment scope bar only applies to the analyst tabs below Summary --
+  // Summary always shows all-time + last-2-weeks, unaffected by it, so hide it there to
+  // avoid the exact "picker silently narrows the numbers" confusion flagged 2026-08-19.
+  document.getElementById('scopebar').style.display = (id==='exec') ? 'none' : 'flex';
+}
+showTab('exec');
+
+// ---------- Exec Summary (always all-time / last-2-weeks, ignores the scope bar) ----------
+function fmtDelta(cur, prev){
+  if(prev===0 || prev==null || cur==null) return {txt:'&mdash;', cls:''};
+  const d = 100*(cur-prev)/prev;
+  const arrow = d>=0 ? '&#9650;' : '&#9660;';
+  const cls = d>=0 ? 'pos' : 'neg';
+  return {txt: arrow+' '+Math.abs(d).toFixed(0)+'%', cls};
+}
+function execKpiCard(label, val, mainSub, deltaTxt, deltaCls, deltaSub){
+  const d=document.createElement('div'); d.className='kpi-card';
+  d.innerHTML = `<div class="kpi-label">${label}</div><div class="kpi-value">${fmt(val)}</div>`
+    + (mainSub ? `<div class="kpi-sub">${mainSub}</div>` : '')
+    + `<div class="kpi-sub"><span class="${deltaCls}">${deltaTxt}</span> ${deltaSub||''}</div>`;
+  return d;
+}
+function renderExec(){
+  // All-time funnel (immune to the scope bar -- straight from the KPI totals)
+  const stageVals = STAGES.map(s=>D.kpis[STAGE_FIELD[s].replace('_cnt','')] ?? 0);
+  new Chart(document.getElementById('chart-exec-funnel'), {
+    type:'bar',
+    data:{ labels:STAGES, datasets:[{ data:stageVals, backgroundColor:COLORS, borderRadius:4 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>fmt(c.raw)}} },
+      scales:{ x:{ ticks:{ callback:v=>fmt(v) } } } }
+  });
+
+  // This week vs last week -- NEVER compare a partial (in-progress) week against a
+  // complete one. Each card shows the partial current value on its own (labeled "so far,
+  // in progress") and computes its delta from the two most recent COMPLETE periods.
+  const cw = D.funnel_cohort; // ascending by cohort_week; last entry is always partial (still accumulating)
+  const thisWeek = cw[cw.length-1], lastWeek = cw[cw.length-2], priorWeek = cw[cw.length-3];
+  const dw = D.dar_war; // has an explicit is_partial flag -- use it rather than assuming
+  const warThis = dw[dw.length-1], warLast = dw[dw.length-2], warPrior = dw[dw.length-3];
+  const mixByWeek = {};
+  D.weekly_mix.forEach(r=>{ if(!mixByWeek[r.week_start]) mixByWeek[r.week_start]={new:0,retained:0,resurrected:0}; mixByWeek[r.week_start][r.bucket]=r.cnt; });
+  const churnByWeek = {}; D.churned.forEach(r=>{ churnByWeek[r.week_start]=r.cnt; });
+  // weekly_mix includes the current in-progress week, so its latest key is always partial
+  const mixWeeks = Object.keys(mixByWeek).sort();
+  const wThis = mixWeeks[mixWeeks.length-1], wLast = mixWeeks[mixWeeks.length-2], wPrior = mixWeeks[mixWeeks.length-3];
+  // churn (tasks.mv_bouncetask_funnel_churn) already excludes any week whose 7-day
+  // check window hasn't elapsed yet, so every key present there is a genuine complete
+  // measurement -- no partial-week handling needed, but don't reuse wThis/wLast from
+  // weekly_mix since the two series don't share the same week keys.
+  const churnWeeks = Object.keys(churnByWeek).sort();
+  const cThisWk = churnWeeks[churnWeeks.length-1], cLastWk = churnWeeks[churnWeeks.length-2];
+
+  const wowRow = document.getElementById('exec-wow-row');
+  wowRow.innerHTML='';
+
+  // New leads: thisWeek is partial -> show it alone, delta is lastWeek vs priorWeek (both complete)
+  const leadDelta = fmtDelta(lastWeek.lead_cnt, priorWeek.lead_cnt);
+  wowRow.appendChild(execKpiCard('New leads', thisWeek.lead_cnt, 'so far this week (in progress)', leadDelta.txt, leadDelta.cls, 'last wk vs wk before'));
+
+  // Active riders: use the view's own is_partial flag to pick the right comparison pair
+  if(warThis){
+    if(warThis.is_partial && warLast && warPrior){
+      const warDelta = fmtDelta(warLast.war, warPrior.war);
+      wowRow.appendChild(execKpiCard('Active riders', warThis.war, 'so far this week (in progress)', warDelta.txt, warDelta.cls, 'last wk vs wk before'));
+    } else if(!warThis.is_partial && warLast){
+      const warDelta = fmtDelta(warThis.war, warLast.war);
+      wowRow.appendChild(execKpiCard('Active riders', warThis.war, 'this week (complete)', warDelta.txt, warDelta.cls, 'vs last wk'));
+    }
+  }
+
+  // New riders: no partial flag on this series, so treat the latest week key as always in-progress
+  if(mixByWeek[wThis] && mixByWeek[wLast] && mixByWeek[wPrior]){
+    const newDelta = fmtDelta(mixByWeek[wLast].new, mixByWeek[wPrior].new);
+    wowRow.appendChild(execKpiCard('New riders', mixByWeek[wThis].new, 'so far this week (in progress)', newDelta.txt, newDelta.cls, 'last wk vs wk before'));
+  }
+
+  // Churned: source view already only contains complete weeks -- straightforward complete-vs-complete
+  if(cThisWk!=null && cLastWk!=null){
+    const churnDelta = fmtDelta(churnByWeek[cThisWk], churnByWeek[cLastWk]);
+    wowRow.appendChild(execKpiCard('Churned', churnByWeek[cThisWk], 'most recent complete wk', churnDelta.txt, churnDelta.cls, 'vs wk before (lower is better)'));
+  }
+
+  // BD split, all-time
+  const bsAll = D.funnel_cohort_seg.reduce((a,r)=>{ if(r.seg==='BD') a.bd+=r.onboarded_cnt; else a.nonbd+=r.onboarded_cnt; return a; }, {bd:0,nonbd:0});
+  new Chart(document.getElementById('chart-exec-bd'), {
+    type:'doughnut',
+    data:{ labels:['BD','Non-BD'], datasets:[{ data:[bsAll.bd,bsAll.nonbd], backgroundColor:[COLORS[0],COLORS[1]] }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{position:'bottom'}, tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.raw)+' ('+pct(c.raw, bsAll.bd+bsAll.nonbd)+')'}} } }
+  });
+
+  // Plain-English headline -- trend compares the two most recent COMPLETE weeks only;
+  // the in-progress week is stated separately as a raw count, never as a % swing.
+  const bdPct = pct(bsAll.bd, bsAll.bd+bsAll.nonbd);
+  const leadDir = lastWeek.lead_cnt>=priorWeek.lead_cnt ? 'up' : 'down';
+  const leadPctTxt = priorWeek.lead_cnt ? Math.abs(100*(lastWeek.lead_cnt-priorWeek.lead_cnt)/priorWeek.lead_cnt).toFixed(0)+'%' : '&mdash;';
+  let headline = `${fmt(D.kpis.lead)} riders have entered the funnel to date, ${fmt(D.kpis.activated)} are Activated (${pct(D.kpis.activated,D.kpis.lead)} of Lead). `;
+  headline += `Last week: ${fmt(lastWeek.lead_cnt)} new leads, ${leadDir} ${leadPctTxt} vs the week before. `;
+  headline += `${fmt(thisWeek.lead_cnt)} so far this week (in progress, not yet comparable). `;
+  headline += `${bdPct} of onboarded riders are BD.`;
+  document.getElementById('exec-headline').innerHTML = headline;
+}
+
+// ---------- KPIs ----------
+const STAGES = ['Lead','Installed','KYC initiated','KYC done','Onboarded','Activated'];
+const STAGE_FIELD = {'Lead':'lead_cnt','Installed':'installed_cnt','KYC initiated':'kyc_initiated_cnt','KYC done':'kyc_done_cnt','Onboarded':'onboarded_cnt','Activated':'activated_cnt'};
+const kpiRow = document.getElementById('kpi-row');
+
+// Segment "NonBD" (overall) is a virtual segment = NonBD-99 + NonBD-399 + NonBD-other combined.
+function cohortSource(seg){
+  if(!seg) return D.funnel_cohort;
+  const rows = seg==='NonBD'
+    ? D.funnel_cohort_seg.filter(r=>r.seg && r.seg.indexOf('NonBD')===0)
+    : D.funnel_cohort_seg.filter(r=>r.seg===seg);
+  const byWeek = {};
+  rows.forEach(r=>{
+    if(!byWeek[r.cohort_week]) byWeek[r.cohort_week] = {cohort_week:r.cohort_week, lead_cnt:0, installed_cnt:0, kyc_initiated_cnt:0, kyc_done_cnt:0, onboarded_cnt:0, activated_cnt:0};
+    const b = byWeek[r.cohort_week];
+    b.lead_cnt+=r.lead_cnt; b.installed_cnt+=r.installed_cnt; b.kyc_initiated_cnt+=r.kyc_initiated_cnt;
+    b.kyc_done_cnt+=r.kyc_done_cnt; b.onboarded_cnt+=r.onboarded_cnt; b.activated_cnt+=r.activated_cnt;
+  });
+  return Object.values(byWeek).sort((a,b)=>a.cohort_week<b.cohort_week?-1:1);
+}
+function inRange(week, startWeek, endWeek){
+  return (!startWeek||week>=startWeek) && (!endWeek||week<=endWeek);
+}
+function cohortRows(startWeek, seg, endWeek){
+  return cohortSource(seg).filter(r=>inRange(r.cohort_week, startWeek, endWeek));
+}
+function stageTotals(startWeek, seg, endWeek){
+  const rows = cohortRows(startWeek, seg, endWeek);
+  const totals = {}; STAGES.forEach(s=>totals[s]=0);
+  rows.forEach(r=>{ STAGES.forEach(s=>{ totals[s]+=r[STAGE_FIELD[s]]; }); });
+  return totals;
+}
+function bdSplit(startWeek, endWeek){
+  let bd=0, nonbd=0;
+  D.funnel_cohort_seg.forEach(r=>{
+    if(!inRange(r.cohort_week, startWeek, endWeek)) return;
+    if(r.seg==='BD') bd+=r.onboarded_cnt; else nonbd+=r.onboarded_cnt;
+  });
+  return {bd,nonbd};
+}
+function renderKPIs(startWeek, seg, endWeek){
+  const totals = stageTotals(startWeek, seg, endWeek);
+  const bs = bdSplit(startWeek, endWeek);
+  const kpiDefs = [
+    ['Lead', totals['Lead']], ['Installed', totals['Installed']], ['KYC initiated', totals['KYC initiated']],
+    ['KYC done', totals['KYC done']], ['Onboarded', totals['Onboarded']], ['Activated', totals['Activated']],
+    ['BD (all segs)', bs.bd], ['Non-BD (all segs)', bs.nonbd]
+  ];
+  kpiRow.innerHTML='';
+  kpiDefs.forEach(([label,val])=>{
+    const d=document.createElement('div'); d.className='kpi-card';
+    d.innerHTML = `<div class="kpi-label">${label}</div><div class="kpi-value">${fmt(val)}</div>`;
+    kpiRow.appendChild(d);
+  });
+}
+
+// ---------- Lead Cohort Funnel — absolute ----------
+function renderFunnelWoW(startWeek, seg, endWeek){
+  const rows = cohortRows(startWeek, seg, endWeek);
+  let html = '<thead><tr><th class="left">Lead week</th>' + STAGES.map(s=>`<th>${s}</th>`).join('') + '</tr></thead><tbody>';
+  rows.forEach(r=>{
+    html += `<tr><td class="left">${r.cohort_week}</td>`;
+    STAGES.forEach(s=>{ html += `<td>${fmt(r[STAGE_FIELD[s]])}</td>`; });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('tbl-funnel-wow').innerHTML = html;
+}
+
+// ---------- Lead Cohort Funnel — % of cohort Lead ----------
+function renderFunnelPctOfLead(startWeek, seg, endWeek){
+  const rows = cohortRows(startWeek, seg, endWeek);
+  const rest = STAGES.slice(1);
+  let html = '<thead><tr><th class="left">Lead week</th><th>Lead</th>' + rest.map(s=>`<th>${s}</th>`).join('') + '</tr></thead><tbody>';
+  rows.forEach(r=>{
+    html += `<tr><td class="left">${r.cohort_week}</td><td>${fmt(r.lead_cnt)}</td>`;
+    rest.forEach(s=>{ html += `<td>${pct(r[STAGE_FIELD[s]], r.lead_cnt)}</td>`; });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('tbl-funnel-pctlead').innerHTML = html;
+}
+
+// ---------- Lead Cohort Funnel — % of previous stage ----------
+function renderFunnelPctOfPrior(startWeek, seg, endWeek){
+  const rows = cohortRows(startWeek, seg, endWeek);
+  let html = '<thead><tr><th class="left">Lead week</th>' + STAGES.map(s=>`<th>${s}</th>`).join('') + '</tr></thead><tbody>';
+  rows.forEach(r=>{
+    html += `<tr><td class="left">${r.cohort_week}</td>`;
+    let priorVal = null;
+    STAGES.forEach((s,i)=>{
+      const v = r[STAGE_FIELD[s]];
+      if(i===0){
+        html += `<td>${fmt(v)} <span style="color:var(--text-secondary)">(base)</span></td>`;
+      } else {
+        html += `<td>${pct(v, priorVal)}</td>`;
+      }
+      priorVal = v;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody>';
+  document.getElementById('tbl-funnel-pctprior').innerHTML = html;
+}
+
+// ---------- BD vs Non-BD ----------
+new Chart(document.getElementById('chart-bd'), {
+  type:'doughnut',
+  data:{labels:['BD','Non-BD'], datasets:[{data:[D.kpis.bd, D.kpis.nonbd], backgroundColor:[COLORS[0],COLORS[1]], borderColor:'#fff', borderWidth:2}]},
+  options:{responsive:true,maintainAspectRatio:false,cutout:'60%',plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:(c)=>{
+    const total=c.dataset.data.reduce((a,b)=>a+b,0); return `${c.label}: ${fmt(c.parsed)} (${(100*c.parsed/total).toFixed(1)}%)`;
+  }}}}}
+});
+
+(function(){
+  const tiers = {};
+  D.deposit_tier.forEach(r=>{ tiers[r.bd_flag+'|'+r.tier]=r.cnt; });
+  const nonbdRows = D.deposit_tier.filter(r=>r.bd_flag==='Non-BD');
+  new Chart(document.getElementById('chart-deposit'), {
+    type:'bar',
+    data:{labels:nonbdRows.map(r=>'₹'+r.tier), datasets:[{label:'Non-BD riders', data:nonbdRows.map(r=>r.cnt), backgroundColor:COLORS[1]+'CC', borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+  });
+  const zeroRow = D.deposit_tier.find(r=>r.tier.startsWith('0'));
+  document.getElementById('deposit-note').innerHTML =
+    `<b>No &#8377;0 Non-BD tier exists today.</b> ${fmt(zeroRow?zeroRow.cnt:0)} onboarded riders have no ProRouting deposit at all &mdash; but every one of them currently classifies as <b>BD</b> (has ledger presence or a &ge;&#8377;500 balance). If you want a true &ldquo;paid &#8377;0, organic&rdquo; segment, that needs a rule change to the bd_flag logic &mdash; flag it and I'll adjust.`;
+
+  let html = '<thead><tr><th class="left">City</th><th>BD</th><th>Non-BD</th><th>BD %</th></tr></thead><tbody>';
+  D.city_funnel.forEach(r=>{
+    const tot = r.bd_cnt+r.nonbd_cnt;
+    html += `<tr><td class="left">${r.city}</td><td>${fmt(r.bd_cnt)}</td><td>${fmt(r.nonbd_cnt)}</td><td>${pct(r.bd_cnt,tot)}</td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('tbl-bd-city').innerHTML = html;
+})();
+
+// ---------- Weekly mix ----------
+let mixChart = null;
+function renderMix(startWeek, endWeek){
+  // NOTE (fixed 2026-08-19): churn is derived as prevWeekTotal - thisWeekRetained, not sourced
+  // from a separately-computed count. The two drifted apart (e.g. week of Jul 27 showed 517
+  // churned when retained-into-that-week was 263 out of a 745 prior-week total, which can only
+  // be 482 -- confirmed by hand on the review call). Deriving it guarantees Retained(w) +
+  // Churned(w) == Total(w-1) always, by construction, instead of by luck.
+  const ALL_MIX_WEEKS = [...new Set(D.weekly_mix.map(r=>r.week_start))].sort();
+  const weeks = ALL_MIX_WEEKS.filter(w=>inRange(w, startWeek, endWeek));
+  const byWkFull = {}; ALL_MIX_WEEKS.forEach(w=>byWkFull[w]={new:0,retained:0,resurrected:0});
+  D.weekly_mix.forEach(r=>{ if(byWkFull[r.week_start]) byWkFull[r.week_start][r.bucket]=r.cnt; });
+  const totalByWkFull = {}; ALL_MIX_WEEKS.forEach(w=>{ const m=byWkFull[w]; totalByWkFull[w]=m.new+m.retained+m.resurrected; });
+  const byWk = {}; weeks.forEach(w=>byWk[w]=byWkFull[w]);
+  const churnByWk = {};
+  weeks.forEach(w=>{
+    const idx = ALL_MIX_WEEKS.indexOf(w);
+    const prevWk = idx>0 ? ALL_MIX_WEEKS[idx-1] : null;
+    churnByWk[w] = prevWk!=null ? Math.max(0, totalByWkFull[prevWk] - byWkFull[w].retained) : null;
+  });
+
+  if(mixChart) mixChart.destroy();
+  mixChart = new Chart(document.getElementById('chart-mix'), {
+    type:'bar',
+    data:{
+      labels: weeks,
+      datasets:[
+        {label:'New', data:weeks.map(w=>byWk[w].new), backgroundColor:COLORS[2], stack:'a'},
+        {label:'Retained', data:weeks.map(w=>byWk[w].retained), backgroundColor:COLORS[0], stack:'a'},
+        {label:'Resurrected', data:weeks.map(w=>byWk[w].resurrected), backgroundColor:COLORS[4], stack:'a'},
+        {label:'Churned (from prior wk)', data:weeks.map(w=>-(churnByWk[w]||0)), backgroundColor:COLORS[3], stack:'a'}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}},scales:{x:{stacked:true},y:{stacked:true}}}
+  });
+
+  let html = '<thead><tr><th class="left">Week of</th><th>Active total</th><th>New</th><th>Retained</th><th>Resurrected</th><th>Churned (from prior wk)</th><th>New %</th><th>Retained %</th><th>Resurrected %</th><th>Churn rate (of prior wk)</th></tr></thead><tbody>';
+  const churnRates = [];
+  weeks.forEach(w=>{
+    const m = byWk[w]; const total = m.new+m.retained+m.resurrected;
+    const idx = ALL_MIX_WEEKS.indexOf(w);
+    const prevWk = idx>0 ? ALL_MIX_WEEKS[idx-1] : null;
+    const prevTotal = prevWk!=null ? totalByWkFull[prevWk] : null;
+    const churnRate = prevTotal ? (100*(churnByWk[w]||0)/prevTotal) : null;
+    if(churnRate!==null) churnRates.push({w, rate:churnRate});
+    html += `<tr><td class="left">${w}</td><td>${fmt(total)}</td><td>${fmt(m.new)}</td><td>${fmt(m.retained)}</td><td>${fmt(m.resurrected)}</td>`+
+      `<td>${churnByWk[w]==null?'&mdash;':fmt(churnByWk[w])}</td><td>${pct(m.new,total)}</td><td>${pct(m.retained,total)}</td><td>${pct(m.resurrected,total)}</td>`+
+      `<td>${churnRate!==null?churnRate.toFixed(1)+'%':'&mdash;'}</td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('tbl-mix').innerHTML = html;
+
+  // insight blurb
+  const insightEl = document.getElementById('mix-insight');
+  if(insightEl && churnRates.length){
+    const first = churnRates[0], last = churnRates[churnRates.length-1];
+    const newShareFirst = weeks.length ? (100*byWk[weeks[0]].new/(byWk[weeks[0]].new+byWk[weeks[0]].retained+byWk[weeks[0]].resurrected||1)) : 0;
+    const lastW = weeks[weeks.length-1];
+    const newShareLast = byWk[lastW] ? (100*byWk[lastW].new/((byWk[lastW].new+byWk[lastW].retained+byWk[lastW].resurrected)||1)) : 0;
+    const trend = last.rate > first.rate ? 'climbed' : 'eased';
+    insightEl.innerHTML = `<b>Takeaway:</b> churn rate has ${trend} from ${first.rate.toFixed(0)}% (${first.w}) to ${last.rate.toFixed(0)}% (${last.w}). `+
+      `New-rider share of the active base moved from ${newShareFirst.toFixed(0)}% to ${newShareLast.toFixed(0)}% over the same window &mdash; `+
+      (newShareLast < newShareFirst ? 'growth is leaning more on retained/resurrected riders now than new sign-ups.' : 'growth is still mostly new sign-ups, not retention.');
+  }
+}
+
+// ---------- Active Riders Deep-dive: avg active days/week ----------
+let darwarChart = null;
+function renderDarWar(startWeek, endWeek){
+  const rows = D.dar_war.filter(r=>inRange(r.week_start, startWeek, endWeek));
+  // days/week = (avg daily distinct riders / WAR) * 7. For a complete week this equals
+  // sum(DAR)/WAR exactly (total rider-active-days / distinct riders) -- the intuitive
+  // "how many days a week does the average active rider show up" number, not a %.
+  // Normalizing by days-elapsed (not a flat 7) is what keeps partial weeks comparable;
+  // partial-week values are an extrapolated pace, flagged via is_partial.
+  const daysPerWk = r => r.war ? (7*r.avg_dar/r.war) : 0;
+
+  // lightweight built-in data-label plugin, scoped to this chart only (no CDN dependency)
+  const darwarDataLabels = {
+    id: 'darwarDataLabels',
+    afterDatasetsDraw(chart){
+      const {ctx} = chart;
+      chart.data.datasets.forEach((ds,i)=>{
+        const meta = chart.getDatasetMeta(i);
+        if(meta.hidden) return;
+        meta.data.forEach((pt,idx)=>{
+          const v = ds.data[idx];
+          if(v==null) return;
+          ctx.save();
+          ctx.fillStyle = ds.borderColor;
+          ctx.font = '600 10.5px -apple-system,BlinkMacSystemFont,sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(ds.labelFormat ? ds.labelFormat(v) : v, pt.x, pt.y - (i===0?10:-14));
+          ctx.restore();
+        });
+      });
+    }
+  };
+
+  if(darwarChart) darwarChart.destroy();
+  darwarChart = new Chart(document.getElementById('chart-darwar'), {
+    type:'line',
+    data:{
+      labels: rows.map(r=>r.week_start),
+      datasets:[
+        {
+          label:'Avg active days/week', data: rows.map(daysPerWk),
+          borderColor: COLORS[0], backgroundColor: COLORS[0]+'33', fill:true, tension:.25,
+          pointBackgroundColor: rows.map(r=>r.is_partial?COLORS[3]:COLORS[0]),
+          pointRadius: rows.map(r=>r.is_partial?6:4),
+          yAxisID:'y', labelFormat: v=>v.toFixed(2)
+        },
+        {
+          label:'Active riders (WAR)', data: rows.map(r=>r.war),
+          borderColor: COLORS[2], backgroundColor:'transparent', borderDash:[6,4], tension:.25,
+          pointBackgroundColor: COLORS[2], pointRadius:3,
+          yAxisID:'y1', labelFormat: v=>fmt(v)
+        }
+      ]
+    },
+    plugins:[darwarDataLabels],
+    options:{responsive:true,maintainAspectRatio:false,layout:{padding:{top:20,bottom:6}},
+      plugins:{legend:{position:'bottom'},tooltip:{mode:'index',intersect:false,callbacks:{
+        label:(c)=> c.dataset.yAxisID==='y' ? 'Avg active days/wk: '+c.parsed.y.toFixed(2) : 'Active riders (WAR): '+fmt(c.parsed.y),
+        afterBody:(items)=> rows[items[0].dataIndex].is_partial ? ['partial week ('+rows[items[0].dataIndex].days_with_data+'/7 days of data) — extrapolated pace'] : []
+      }}},
+      scales:{
+        y:{beginAtZero:true,max:5,ticks:{stepSize:1},title:{display:true,text:'Avg active days/week'}},
+        y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},title:{display:true,text:'Active riders (WAR)'}}
+      }
+    }
+  });
+
+  let html = '<thead><tr><th class="left">Week of</th><th>WAR</th><th>Avg DAR/day</th><th>Avg active days/wk</th><th>Days w/ data</th><th class="left">Note</th></tr></thead><tbody>';
+  rows.forEach(r=>{
+    html += `<tr><td class="left">${r.week_start}</td><td>${fmt(r.war)}</td><td>${r.avg_dar.toFixed(1)}</td><td>${daysPerWk(r).toFixed(2)}</td><td>${r.days_with_data}</td><td class="left">${r.is_partial?'<span style="color:var(--warn)">partial week</span>':''}</td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('tbl-darwar').innerHTML = html;
+
+  // trend insight — full weeks only
+  const full = rows.filter(r=>!r.is_partial);
+  const insightEl = document.getElementById('darwar-insight');
+  if(insightEl && full.length>=2){
+    const first = full[0], last = full[full.length-1];
+    const firstD = daysPerWk(first), lastD = daysPerWk(last);
+    const delta = lastD - firstD;
+    const dir = Math.abs(delta) < 0.15 ? 'roughly flat' : (delta > 0 ? 'increasing' : 'decreasing');
+    const meaning = dir === 'increasing'
+      ? 'riders are showing up more days per week than before &mdash; drifting toward more full-time-like engagement.'
+      : dir === 'decreasing'
+        ? 'riders are spreading their activity across fewer days per week than before &mdash; drifting toward more part-time / occasional behaviour.'
+        : 'no material shift in per-rider weekly activity frequency over this window.';
+    // low point among full weeks
+    let minRow = full[0], minD = firstD;
+    full.forEach(r=>{ const dd = daysPerWk(r); if(dd < minD){ minD = dd; minRow = r; } });
+    insightEl.innerHTML = `<b>Trend (full weeks only):</b> avg active days/week ${dir} &mdash; ${firstD.toFixed(2)} (${first.week_start}) &rarr; ${lastD.toFixed(2)} (${last.week_start}). ${meaning} Lowest point in range: ${minD.toFixed(2)} days/wk (${minRow.week_start}).`;
+  } else if(insightEl){
+    insightEl.innerHTML = '';
+  }
+}
+
+// ---------- Churn / cohort triangle ----------
+document.getElementById('act-min').textContent = D.activity_range.min_week;
+const OFFSETS = [...Array(14).keys()]; // 0..13
+const activeByKey = {}; D.cohort_triangle.forEach(r=>activeByKey[r.cohort_week+'|'+r.wk_offset]=r.active_cnt);
+// Cohort anchor = Active week (same weekly-active population as the Weekly Rider Mix tab).
+// W+0 is that week's full active headcount, so cohort size = W+0 always, and reconciles
+// exactly with Weekly Rider Mix's "Active total" column (0 mismatches, verified 2026-08-19).
+const sizeByWeek = {};
+D.cohort_sizes.forEach(r=>{ sizeByWeek[r.cohort_week] = r.active_cnt; });
+const maxWeek = new Date(D.activity_range.max_week+'T00:00:00');
+
+function maxValidOffset(cohortWeek){
+  const cw = new Date(cohortWeek+'T00:00:00');
+  return Math.floor((maxWeek - cw) / (7*24*3600*1000));
+}
+
+function buildTriangle(pctMode, cohorts){
+  let html = '<table><thead><tr><th class="left">Active wk</th><th>Active (cohort size)</th>' + OFFSETS.map(o=>`<th>W+${o}</th>`).join('') + '</tr></thead><tbody>';
+  cohorts.forEach(cw=>{
+    const size = sizeByWeek[cw];
+    const mv = maxValidOffset(cw);
+    html += `<tr><td class="left">${cw}</td><td>${fmt(size)}</td>`;
+    OFFSETS.forEach(o=>{
+      if(o > mv){ html += '<td class="blank">&mdash;</td>'; return; }
+      const v = activeByKey[cw+'|'+o] || 0;
+      if(pctMode){
+        const p = size ? (100*v/size) : 0;
+        const shade = Math.round(255 - Math.min(p,100)*1.6);
+        html += `<td class="heat" style="background:rgb(${shade},${Math.min(255,shade+30)},${255})">${p.toFixed(0)}%</td>`;
+      } else {
+        const shade = Math.round(255 - Math.min(v,60)*3);
+        html += `<td class="heat" style="background:rgb(${shade},${Math.min(255,shade+30)},${255})">${fmt(v)}</td>`;
+      }
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+function renderTriangle(startWeek, endWeek){
+  const cohorts = D.cohort_sizes.map(r=>r.cohort_week).filter(w=>inRange(w, startWeek, endWeek));
+  document.getElementById('triangle-raw').innerHTML = buildTriangle(false, cohorts);
+  document.getElementById('triangle-pct').innerHTML = buildTriangle(true, cohorts);
+}
+
+// ---------- global week range + segment filter ----------
+const DEFAULT_START = ''; // default to full range — a narrowed default caused confusion (looked like broken/missing data)
+const ALL_WEEKS = [...new Set([
+  ...D.funnel_cohort.map(r=>r.cohort_week),
+  ...D.weekly_mix.map(r=>r.week_start),
+  ...D.cohort_sizes.map(r=>r.cohort_week),
+  ...D.dar_war.map(r=>r.week_start)
+])].sort();
+
+const fromInput = document.getElementById('fromweek');
+const toInput = document.getElementById('toweek');
+
+// ---------- segmented Segment control (replaces the old dropdown) ----------
+// currentSeg values match the existing cohortSource()/bdSplit() contract unchanged:
+// '' (All), 'BD', 'NonBD' (all Non-BD), 'NonBD-99', 'NonBD-399'.
+let currentSeg = '';
+const SEG_PRIMARY = [['','All riders'],['BD','BD'],['NonBD','Non-BD']];
+const SEG_SUB = [['NonBD','All'],['NonBD-99','₹99'],['NonBD-399','₹399']];
+const segBtnStyle = (active)=>`padding:5px 10px;border:none;font-size:12.5px;cursor:pointer;background:${active?'#4C72B0':'transparent'};color:${active?'#fff':'#a9adbb'};`;
+
+function isNonBdFamily(seg){ return seg==='NonBD' || seg==='NonBD-99' || seg==='NonBD-399'; }
+
+function renderSegButtons(){
+  const primaryEl = document.getElementById('seg-group');
+  primaryEl.innerHTML = '';
+  SEG_PRIMARY.forEach(([val,label])=>{
+    const active = val==='NonBD' ? isNonBdFamily(currentSeg) : currentSeg===val;
+    const b = document.createElement('button');
+    b.textContent = label;
+    b.style.cssText = segBtnStyle(active);
+    b.onclick = ()=>{ currentSeg = val; renderAllWeekly(); };
+    primaryEl.appendChild(b);
+  });
+
+  const subWrap = document.getElementById('seg-subgroup');
+  const subEl = document.getElementById('seg-subgroup-buttons');
+  if(isNonBdFamily(currentSeg)){
+    subWrap.style.display = 'inline-flex';
+    subEl.innerHTML = '';
+    SEG_SUB.forEach(([val,label])=>{
+      const active = currentSeg===val;
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.style.cssText = segBtnStyle(active);
+      b.onclick = ()=>{ currentSeg = val; renderAllWeekly(); };
+      subEl.appendChild(b);
+    });
+  } else {
+    subWrap.style.display = 'none';
+  }
+}
+
+function fillWeekSelect(el, placeholderLabel){
+  el.innerHTML = '';
+  const ph = document.createElement('option'); ph.value=''; ph.textContent=placeholderLabel;
+  el.appendChild(ph);
+  ALL_WEEKS.forEach(w=>{
+    const o = document.createElement('option'); o.value=w; o.textContent=w;
+    el.appendChild(o);
+  });
+}
+fillWeekSelect(fromInput, '(earliest)');
+fillWeekSelect(toInput, '(latest)');
+fromInput.value = ALL_WEEKS.includes(DEFAULT_START) ? DEFAULT_START : '';
+toInput.value = '';
+
+function renderAllWeekly(){
+  let sw = fromInput.value || null;
+  let ew = toInput.value || null;
+  if(sw && ew && sw > ew){ [sw, ew] = [ew, sw]; fromInput.value = sw; toInput.value = ew; } // swap if user picked them backwards
+  const seg = currentSeg || null;
+  renderSegButtons();
+  renderKPIs(sw, seg, ew);
+  renderFunnelWoW(sw, seg, ew);
+  renderFunnelPctOfLead(sw, seg, ew);
+  renderFunnelPctOfPrior(sw, seg, ew);
+  renderMix(sw, ew);
+  renderDarWar(sw, ew);
+  renderTriangle(sw, ew);
+}
+fromInput.addEventListener('change', renderAllWeekly);
+toInput.addEventListener('change', renderAllWeekly);
+document.getElementById('resetweek').addEventListener('click', ()=>{ fromInput.value=''; toInput.value=''; currentSeg=''; renderAllWeekly(); });
+renderAllWeekly();
+renderExec();
+
+// ---------- City cuts ----------
+(function(){
+  document.getElementById('city-note').innerHTML =
+    `<b>78% of leads have no recorded city</b> (20,609 of 26,438 show as &ldquo;Unknown&rdquo; &mdash; the Organic/backfilled segment, which never went through the hub-capturing lead form). The Blr / NCR / Hyd / Unknown split below is directionally useful for the ~22% with data, but not representative overall until lead_city capture improves upstream.`;
+  const stages = [['lead','Lead'],['installed','Installed'],['kyc_initiated','KYC init'],['kyc_done','KYC done'],['onboarded','Onboarded'],['activated','Activated']];
+  let html = '<thead><tr><th class="left">City</th>' + stages.map(s=>`<th>${s[1]}</th>`).join('') + '<th>Lead&rarr;Installed</th><th>Installed&rarr;Onboarded</th><th>Onboarded&rarr;Activated</th></tr></thead><tbody>';
+  D.city_funnel.forEach(r=>{
+    html += `<tr><td class="left">${r.city}</td>` + stages.map(s=>`<td>${fmt(r[s[0]])}</td>`).join('') +
+      `<td>${pct(r.installed,r.lead)}</td><td>${pct(r.onboarded,r.installed)}</td><td>${pct(r.activated,r.onboarded)}</td></tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('tbl-city').innerHTML = html;
+})();
+</script>
+</body>
+</html>

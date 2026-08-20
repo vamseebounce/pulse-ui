@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Funnel — Pulse</title>
+<link rel="stylesheet" href="shared/theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  /* Funnel page is a full-bleed iframe embed (see note in #dash below) — override main's padding. */
+  main.funnel-main{max-width:none;padding:0;}
+  #funnel-frame{display:block;width:100%;height:calc(100vh - 58px);border:none;background:#f5f6f8;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><a href="index.html"><span class="dot"></span> Pulse</a><span class="meta">&nbsp;· Funnel</span></div>
+  <div class="hdr-actions">
+    <a class="hdr-link" href="index.html">Home</a>
+    <a class="hdr-link" href="growth.html">Growth</a>
+    <a class="hdr-link" href="admin.html">Admin</a>
+    <button id="logout-btn" onclick="signOut()">Sign out</button>
+  </div>
+</header>
+
+<main id="auth-main">
+
+  <div id="auth-screen">
+    <div class="auth-box">
+      <h2>Sign in to Pulse</h2>
+      <p>Enter your email — we'll send a magic link, no password needed.</p>
+      <div id="auth-form">
+        <input type="email" id="auth-email" placeholder="you@bounceshare.com" autocomplete="email">
+        <button id="auth-submit" onclick="sendMagicLink()">Send magic link</button>
+      </div>
+      <div id="auth-sent">
+        <p style="color:var(--good)">Link sent to <strong id="auth-sent-email"></strong>. Check your inbox.</p>
+      </div>
+      <div id="auth-msg"></div>
+    </div>
+  </div>
+
+  <div id="pending-screen">
+    <div class="box">
+      <h2>Access pending</h2>
+      <p style="color:var(--muted)">You're signed in, but your account isn't on the Pulse allowlist yet.
+      Ask <strong>vamsee@scalability.club</strong> to add you in <code>tasks.members</code>.</p>
+      <button id="pending-signout" onclick="signOut()" style="margin-top:14px;padding:8px 16px;border-radius:6px;border:1px solid var(--border);background:var(--panel2);color:var(--text);cursor:pointer;">Sign out</button>
+    </div>
+  </div>
+
+</main>
+
+<!-- ==================== FUNNEL ====================
+     2026-08-20: per explicit instruction, every section from the standalone
+     data/dashboards/funnel_dashboard.html (Summary, Overview & Funnel, BD vs Non-BD,
+     Weekly Rider Mix, Active Riders Deep-dive, Churn Matrix, City Cuts) is shared here
+     as-is via iframe, rather than re-porting each one to live Supabase queries. This is
+     an interim step: the embedded file is a static snapshot (rebuilt locally by
+     python3 data/dashboards/build_dashboard.py and copied into pulse-ui/embed/), not a
+     live query against tasks.v_bouncetask_funnel_* the way growth.html's Funnel-adjacent
+     panels are. To refresh: rebuild the dashboard, then
+       cp data/dashboards/funnel_dashboard.html pulse-ui/embed/funnel_dashboard.html
+     and commit. Proper native port (matching growth.html's live-query pattern) is future
+     work, not done here. -->
+<div id="dash" style="display:none;">
+  <main class="funnel-main">
+    <iframe id="funnel-frame" src="embed/funnel_dashboard.html" title="Bounce Task Funnel Dashboard"></iframe>
+  </main>
+</div>
+
+<script src="shared/auth.js"></script>
+<script>
+initPulseAuth(function(session){ /* embedded dashboard is a static file — nothing to fetch here */ });
+</script>
+
+</body>
+</html>
