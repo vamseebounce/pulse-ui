@@ -141,11 +141,11 @@
     <div id="ftab-bd" class="ftab">
       <div class="grid2">
         <section class="card">
-          <div class="card-head"><h3>BD vs Non-BD — Onboarded riders</h3><span class="sub">BD = ledger presence or balance ≥₹500. Non-BD = organic ₹99/₹399 deposit.</span></div>
+          <div class="card-head"><h3>BD vs Non-BD — Onboarded riders</h3><span class="sub">BD = had a valid Bounce Daily booking before this lead's date (per-lead tag). Non-BD = no earlier valid booking — says nothing about lead source.</span></div>
           <div class="chart-wrap" style="height:280px;"><canvas id="chart-bd"></canvas></div>
         </section>
         <section class="card">
-          <div class="card-head"><h3>Non-BD: deposit tier split</h3><span class="sub">₹99 vs ₹399 organic sign-up tiers.</span></div>
+          <div class="card-head"><h3>Non-BD: deposit tier split</h3><span class="sub">₹99 vs ₹399 sign-up deposit tiers (deposit is independent of the BD tag).</span></div>
           <div class="chart-wrap" style="height:280px;"><canvas id="chart-deposit"></canvas></div>
         </section>
       </div>
@@ -521,7 +521,7 @@ function renderBdTab(){
   });
   const zeroRow = D.deposit_tier.find(r=>r.tier && r.tier.startsWith('0'));
   document.getElementById('deposit-note').innerHTML =
-    `<b>No ₹0 Non-BD tier exists today.</b> ${fmt(zeroRow?zeroRow.cnt:0)} onboarded riders have no ProRouting deposit at all — but every one currently classifies as <b>BD</b> (ledger presence or ≥₹500 balance).`;
+    `${fmt(zeroRow?zeroRow.cnt:0)} onboarded riders have no ProRouting deposit at all. Deposit tier is informational only — the BD/Non-BD tag is booking-history-based (per lead), not deposit-based.`;
 
   let html = '<thead><tr><th style="text-align:left;">City</th><th>BD</th><th>Non-BD</th><th>BD %</th></tr></thead><tbody>';
   D.city_funnel.forEach(r=>{
