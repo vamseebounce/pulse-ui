@@ -199,7 +199,11 @@
     <div id="ftab-city" class="ftab">
       <div class="note" id="city-note"></div>
       <section class="card">
-        <div class="card-head"><h3>Funnel drop-off by city</h3><span class="sub">For FR vs Organic, use the "Lead source" filter above.</span><button class="csv-btn" onclick="downloadTableCSV('tbl-city','funnel_by_city.csv')">⬇ CSV</button></div>
+        <div class="card-head"><h3>Conversion by city — attempts (acquisition performance)</h3><span class="sub">Attempt-grain: each acquisition attempt counts once, attributed to the city where that attempt happened. This is the table for judging city/FR acquisition. Totals reconcile with the cohort tabs.</span><button class="csv-btn" onclick="downloadTableCSV('tbl-city-attempts','conversion_by_city_attempts.csv')">⬇ CSV</button></div>
+        <div class="tbl-x"><table id="tbl-city-attempts"></table></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h3>People per city — ever reached (contact grain)</h3><span class="sub">Stock view: each person counts once, lifetime furthest stage. Use for sizing the per-city population, not for judging conversion.</span><button class="csv-btn" onclick="downloadTableCSV('tbl-city','funnel_by_city.csv')">⬇ CSV</button></div>
         <div class="tbl-x"><table id="tbl-city"></table></div>
       </section>
     </div>
@@ -247,9 +251,10 @@ function downloadTableCSV(containerId, filename){
 // ---------- data loading: 12 live views, assembled into the same D shape the render
 // functions below expect (ported as-is from data/dashboards/build_dashboard.py) ----------
 async function loadFunnelData(){
-  const [kpisR, cityR, cohortR, cohortSegR, triR, crossR, darwarR, depositR, leadsrcR, reactR, mixR, churnR] = await Promise.all([
+  const [kpisR, cityR, cityAttR, cohortR, cohortSegR, triR, crossR, darwarR, depositR, leadsrcR, reactR, mixR, churnR] = await Promise.all([
     sbTasks.from('v_bouncetask_funnel_kpis').select('*'),
     sbTasks.from('v_bouncetask_funnel_city').select('*'),
+    sbTasks.from('v_bouncetask_funnel_city_attempts').select('*').order('lead_cnt', {ascending:false}),
     sbTasks.from('v_bouncetask_funnel_cohort').select('*').order('cohort_week'),
     sbTasks.from('v_bouncetask_funnel_cohort_seg').select('*').order('cohort_week'),
     sbTasks.from('v_bouncetask_funnel_cohort_triangle').select('*'),
@@ -261,7 +266,7 @@ async function loadFunnelData(){
     sbTasks.from('v_bouncetask_funnel_weekly_mix').select('*'),
     sbTasks.from('v_bouncetask_funnel_churn').select('*').order('week_start'),
   ]);
-  [kpisR, cityR, cohortR, cohortSegR, triR, crossR, darwarR, depositR, leadsrcR, reactR, mixR, churnR].forEach(r=>{
+  [kpisR, cityR, cityAttR, cohortR, cohortSegR, triR, crossR, darwarR, depositR, leadsrcR, reactR, mixR, churnR].forEach(r=>{
     if(r.error) console.error('funnel data load error', r.error);
   });
   const k = (kpisR.data && kpisR.data[0]) || {};
@@ -270,6 +275,7 @@ async function loadFunnelData(){
       kyc_done:k.kyc_done_cnt||0, onboarded:k.onboarded_cnt||0, activated:k.activated_cnt||0,
       bd:k.bd_cnt||0, nonbd:k.nonbd_cnt||0 },
     city_funnel: cityR.data||[],
+    city_attempts: cityAttR.data||[],
     deposit_tier: depositR.data||[],
     weekly_mix: mixR.data||[],
     churned: churnR.data||[],
@@ -728,6 +734,17 @@ function renderCity(){
   });
   html += '</tbody>';
   document.getElementById('tbl-city').innerHTML = html;
+
+  // attempt-grain table: *_cnt fields, Unknown pinned to the bottom
+  const aStages = [['lead_cnt','Lead'],['installed_cnt','Installed'],['kyc_initiated_cnt','KYC init'],['kyc_done_cnt','KYC done'],['onboarded_cnt','Onboarded'],['activated_cnt','Activated']];
+  const aRows = D.city_attempts.filter(r=>r.city!=='Unknown').concat(D.city_attempts.filter(r=>r.city==='Unknown'));
+  let ah = '<thead><tr><th style="text-align:left;">City</th>' + aStages.map(s=>`<th>${s[1]}</th>`).join('') + '<th>Lead→Onboarded</th><th>Onboarded→Activated</th></tr></thead><tbody>';
+  aRows.forEach(r=>{
+    ah += `<tr><td style="text-align:left;font-weight:600;">${r.city}</td>` + aStages.map(s=>`<td>${fmt(r[s[0]])}</td>`).join('') +
+      `<td>${pct(r.onboarded_cnt,r.lead_cnt)}</td><td>${pct(r.activated_cnt,r.onboarded_cnt)}</td></tr>`;
+  });
+  ah += '</tbody>';
+  document.getElementById('tbl-city-attempts').innerHTML = ah;
 }
 
 // ---------- Lead source insight + Reactivation note ----------
