@@ -121,25 +121,31 @@
       <div class="kpis" id="kpi-row"></div>
       <div class="note" id="leadsrc-insight"></div>
       <div class="note" id="reactivation-note"></div>
-      <div class="note">
-        <b>Attempt-week cohort (2026-08-21 rework).</b> Each row is a real lead <em>attempt</em>, not a contact — bucketed by the week that specific attempt was created. A contact who tries, fails, and retries weeks later shows up in both weeks; the attempt that actually converts gets the credit in <em>its own</em> week, not retroactively folded into the first one. Once a contact has ever Won (reached Activated), every later lead they generate is a <b>reactivation</b> and is excluded here entirely — see the note above and <code>docs/Funnel.md</code> for that as its own dimension. Because <code>reached_installed ⇒ reached_lead</code>, <code>reached_kyc_done ⇒ reached_installed</code>, etc. hold per attempt, each column is ≤ the one before it — nothing here can read over 100% or increase step to step.
+      <details class="note">
+        <summary style="cursor:pointer;font-weight:600;">Methodology — attempt-week cohorts &amp; grain (click to expand)</summary>
+        <div style="margin-top:8px;">
+        <b>Attempt-week cohort (2026-08-21 rework).</b> Each row is a real lead <em>attempt</em>, not a contact — bucketed by the week that specific attempt was created. A contact who tries, fails, and retries weeks later shows up in both weeks; the attempt that actually converts gets the credit in <em>its own</em> week, not retroactively folded into the first one. Once a contact has ever Won (reached Activated), every later lead they generate is a <b>reactivation</b> and is excluded here entirely — see <code>docs/Funnel.md</code> for that as its own dimension. Because <code>reached_installed ⇒ reached_lead</code>, <code>reached_kyc_done ⇒ reached_installed</code>, etc. hold per attempt, each column is ≤ the one before it — nothing here can read over 100% or increase step to step.
         <br><b>Grain:</b> every count on this tab is <em>attempt-grain</em> (flow — cohorts, conversion). Population/stock counts (how many <em>people</em>) are contact-grain and live on the Summary tab headline — never compare the two directly (27,492 attempts ≠ 26,438 people).
-      </div>
+        <br><b>Segment:</b> every attempt carries a BD/Non-BD tag from creation (valid Bounce Daily booking dated before that lead) — so BD + Non-BD = total, at every stage.
+        </div>
+      </details>
       <section class="card">
-        <div class="card-head"><h3>Lead Cohort Funnel — absolute</h3><span class="sub">Rows = week the attempt was created. Each column = how many of that same attempt-cohort have reached that stage by now.</span><button class="csv-btn" onclick="downloadTableCSV('tbl-funnel-wow','funnel_cohort_absolute.csv')">⬇ CSV</button></div>
-        <div class="tbl-x"><table id="tbl-funnel-wow"></table></div>
-      </section>
-      <section class="card">
-        <div class="card-head"><h3>Lead Cohort Funnel — % of cohort (Lead)</h3><span class="sub">Same cohorts; each stage as a % of that cohort's Lead count.</span><button class="csv-btn" onclick="downloadTableCSV('tbl-funnel-pctlead','funnel_cohort_pct_of_lead.csv')">⬇ CSV</button></div>
-        <div class="tbl-x"><table id="tbl-funnel-pctlead"></table></div>
-      </section>
-      <section class="card">
-        <div class="card-head"><h3>Lead Cohort Funnel — step conversion (% of previous stage)</h3><span class="sub">Same cohorts; each stage as a % of the stage immediately before it.</span><button class="csv-btn" onclick="downloadTableCSV('tbl-funnel-pctprior','funnel_cohort_pct_of_prior.csv')">⬇ CSV</button></div>
-        <div class="tbl-x"><table id="tbl-funnel-pctprior"></table></div>
+        <div class="card-head"><h3>Lead Cohort Funnel</h3><span class="sub" id="funnel-mode-sub">Rows = week the attempt was created. Each column = how many of that same attempt-cohort have reached that stage by now.</span>
+          <span style="white-space:nowrap;">
+            <button class="csv-btn" id="fm-abs" onclick="setFunnelMode('abs')">Absolute</button>
+            <button class="csv-btn" id="fm-pctlead" onclick="setFunnelMode('pctlead')">% of Lead</button>
+            <button class="csv-btn" id="fm-pctprior" onclick="setFunnelMode('pctprior')">Step %</button>
+            <button class="csv-btn" onclick="downloadTableCSV('tbl-funnel-main','funnel_cohort.csv')">⬇ CSV</button>
+          </span></div>
+        <div class="tbl-x"><table id="tbl-funnel-main"></table></div>
       </section>
     </div>
 
     <div id="ftab-bd" class="ftab">
+      <section class="card">
+        <div class="card-head"><h3>Full funnel by segment — BD vs Non-BD</h3><span class="sub">Every attempt is tagged at creation (BD = valid Bounce Daily booking dated before that lead), so BD + Non-BD = all attempts at every stage. Respects the week-range filter.</span><button class="csv-btn" onclick="downloadTableCSV('tbl-seg-funnel','funnel_by_segment.csv')">⬇ CSV</button></div>
+        <div class="tbl-x"><table id="tbl-seg-funnel"></table></div>
+      </section>
       <div class="grid2">
         <section class="card">
           <div class="card-head"><h3>BD vs Non-BD — Onboarded (attempt-grain)</h3><span class="sub">BD = had a valid Bounce Daily booking before this lead's date (per-lead tag). Non-BD = no earlier valid booking — says nothing about lead source.</span></div>
@@ -157,7 +163,7 @@
       </section>
     </div>
 
-    <div id="ftab-mix" class="ftab">
+    <div id="ftab-activity" class="ftab">
       <section class="card">
         <div class="card-head"><h3>Weekly Rider Mix — New / Retained / Resurrected vs Churned</h3><span class="sub">Active = delivered ≥1 order that week. Counts are riders (people, contact-grain), not attempts.</span></div>
         <div class="chart-wrap" style="height:340px;"><canvas id="chart-mix"></canvas></div>
@@ -167,9 +173,6 @@
         <div class="card-head"><h3>Mix detail — absolute &amp; %</h3><button class="csv-btn" onclick="downloadTableCSV('tbl-mix','weekly_rider_mix.csv')">⬇ CSV</button></div>
         <div class="tbl-x"><table id="tbl-mix"></table></div>
       </section>
-    </div>
-
-    <div id="ftab-riders" class="ftab">
       <div class="note">
         <b>Avg active days/week = stickiness signal.</b> WAR = distinct riders active (≥1 delivered order) that week. Computed as (avg daily distinct riders ÷ WAR) × 7. Weeks with &lt;7 days of order data are marked partial.
       </div>
@@ -182,10 +185,7 @@
         <div class="card-head"><h3>DAR/WAR detail</h3><button class="csv-btn" onclick="downloadTableCSV('tbl-darwar','dar_war_detail.csv')">⬇ CSV</button></div>
         <div class="tbl-x"><table id="tbl-darwar"></table></div>
       </section>
-    </div>
-
-    <div id="ftab-churn" class="ftab">
-      <div class="note">Anchored on <b>Active week</b> — same weekly-active population as Weekly Rider Mix. W+0 = full active headcount that week. W+k = of that same group, how many are also active k weeks later. Rider activity data only goes back to <b id="act-min"></b>, so earlier cohorts show blank cells.</div>
+      <div class="note">Retention triangles are anchored on <b>Active week</b> — same weekly-active population as the mix above. W+0 = full active headcount that week. W+k = of that same group, how many are also active k weeks later. Rider activity data only goes back to <b id="act-min"></b>, so earlier cohorts show blank cells.</div>
       <section class="card">
         <div class="card-head"><h3>Retention Triangle — raw active riders</h3><button class="csv-btn" onclick="downloadTableCSV('triangle-raw','retention_triangle_raw.csv')">⬇ CSV</button></div>
         <div class="tbl-x" id="triangle-raw"></div>
@@ -296,7 +296,7 @@ async function loadFunnelData(){
 }
 
 // ---------- tabs ----------
-const TABS = [['exec','Summary'],['overview','Overview & Funnel'],['bd','BD vs Non-BD'],['mix','Weekly Rider Mix'],['riders','Active Riders Deep-dive'],['churn','Churn Matrix'],['city','City Cuts']];
+const TABS = [['exec','Summary'],['overview','Acquisition Funnel'],['bd','Segments'],['activity','Riders & Retention'],['city','City Cuts']];
 const tabnav = document.getElementById('tabnav');
 TABS.forEach(([id,label])=>{
   const b=document.createElement('button');
@@ -469,6 +469,24 @@ function renderKPIs(startWeek, seg, endWeek){
   });
 }
 
+let funnelMode = 'abs';
+const FUNNEL_MODE_SUB = {
+  abs: 'Rows = week the attempt was created. Each column = how many of that same attempt-cohort have reached that stage by now.',
+  pctlead: "Same cohorts; each stage as a % of that cohort's Lead count.",
+  pctprior: 'Same cohorts; each stage as a % of the stage immediately before it.'
+};
+function setFunnelMode(m){ funnelMode = m; renderAllWeekly(); }
+function renderFunnelActive(sw, seg, ew){
+  ['abs','pctlead','pctprior'].forEach(m=>{
+    const b = document.getElementById('fm-'+m);
+    if(b){ b.style.fontWeight = (m===funnelMode?'700':'400'); b.style.textDecoration = (m===funnelMode?'underline':'none'); }
+  });
+  const subEl = document.getElementById('funnel-mode-sub');
+  if(subEl) subEl.textContent = FUNNEL_MODE_SUB[funnelMode];
+  if(funnelMode==='pctlead') renderFunnelPctOfLead(sw, seg, ew);
+  else if(funnelMode==='pctprior') renderFunnelPctOfPrior(sw, seg, ew);
+  else renderFunnelWoW(sw, seg, ew);
+}
 function renderFunnelWoW(startWeek, seg, endWeek){
   const rows = cohortRows(startWeek, seg, endWeek);
   let html = '<thead><tr><th style="text-align:left;">Attempt week</th>' + STAGES.map(s=>`<th>${s}</th>`).join('') + '</tr></thead><tbody>';
@@ -478,7 +496,7 @@ function renderFunnelWoW(startWeek, seg, endWeek){
     html += '</tr>';
   });
   html += '</tbody>';
-  document.getElementById('tbl-funnel-wow').innerHTML = html;
+  document.getElementById('tbl-funnel-main').innerHTML = html;
 }
 function renderFunnelPctOfLead(startWeek, seg, endWeek){
   const rows = cohortRows(startWeek, seg, endWeek);
@@ -490,7 +508,7 @@ function renderFunnelPctOfLead(startWeek, seg, endWeek){
     html += '</tr>';
   });
   html += '</tbody>';
-  document.getElementById('tbl-funnel-pctlead').innerHTML = html;
+  document.getElementById('tbl-funnel-main').innerHTML = html;
 }
 function renderFunnelPctOfPrior(startWeek, seg, endWeek){
   const rows = cohortRows(startWeek, seg, endWeek);
@@ -507,7 +525,7 @@ function renderFunnelPctOfPrior(startWeek, seg, endWeek){
     html += '</tr>';
   });
   html += '</tbody>';
-  document.getElementById('tbl-funnel-pctprior').innerHTML = html;
+  document.getElementById('tbl-funnel-main').innerHTML = html;
 }
 
 // ---------- BD vs Non-BD / deposit tiers / city (all-time, static once loaded) ----------
@@ -747,6 +765,25 @@ function renderCity(){
   document.getElementById('tbl-city-attempts').innerHTML = ah;
 }
 
+// ---------- Segments: full funnel BD vs Non-BD (from cross view, all 6 stages) ----------
+function renderSegFunnel(sw, ew){
+  const agg = {'BD':{}, 'Non-BD':{}};
+  const fields = ['lead_cnt','installed_cnt','kyc_initiated_cnt','kyc_done_cnt','onboarded_cnt','activated_cnt'];
+  D.funnel_cohort_cross.forEach(r=>{
+    if(!agg[r.seg]) return;
+    if(!inRange(r.cohort_week, sw, ew)) return;
+    fields.forEach(f=>{ agg[r.seg][f] = (agg[r.seg][f]||0) + (r[f]||0); });
+  });
+  const stages = [['lead_cnt','Lead'],['installed_cnt','Installed'],['kyc_initiated_cnt','KYC initiated'],['kyc_done_cnt','KYC done'],['onboarded_cnt','Onboarded'],['activated_cnt','Activated']];
+  let h = '<thead><tr><th style="text-align:left;">Stage</th><th>BD</th><th>BD % of Lead</th><th>Non-BD</th><th>Non-BD % of Lead</th><th>Total</th></tr></thead><tbody>';
+  stages.forEach(([f,label])=>{
+    const b = agg['BD'][f]||0, n = agg['Non-BD'][f]||0;
+    h += `<tr><td style="text-align:left;font-weight:600;">${label}</td><td>${fmt(b)}</td><td>${pct(b, agg['BD'].lead_cnt||0)}</td><td>${fmt(n)}</td><td>${pct(n, agg['Non-BD'].lead_cnt||0)}</td><td>${fmt(b+n)}</td></tr>`;
+  });
+  h += '</tbody>';
+  document.getElementById('tbl-seg-funnel').innerHTML = h;
+}
+
 // ---------- Lead source insight + Reactivation note ----------
 function renderLeadSrcInsight(){
   const totals = {FR:{lead:0,onboarded:0,activated:0}, Organic:{lead:0,onboarded:0,activated:0}};
@@ -823,9 +860,8 @@ function renderAllWeekly(){
   renderSegButtons();
   renderLeadSrcButtons();
   renderKPIs(sw, seg, ew);
-  renderFunnelWoW(sw, seg, ew);
-  renderFunnelPctOfLead(sw, seg, ew);
-  renderFunnelPctOfPrior(sw, seg, ew);
+  renderFunnelActive(sw, seg, ew);
+  renderSegFunnel(sw, ew);
   renderMix(sw, ew);
   renderDarWar(sw, ew);
   renderTriangle(sw, ew);
