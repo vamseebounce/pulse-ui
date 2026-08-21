@@ -101,7 +101,7 @@
         <div class="card-head" style="border:none;"><div id="exec-headline" style="font-size:15px;line-height:1.5;"></div></div>
       </section>
       <section class="card">
-        <div class="card-head"><h3>Rider funnel — all-time</h3><span class="sub">Every rider who has ever entered the funnel, by the furthest stage reached to date.</span></div>
+        <div class="card-head"><h3>Rider funnel — all-time</h3><span class="sub">Every rider who has ever entered the funnel, by the furthest stage reached to date. Read as two owned halves: <b>Funnel conversion</b> = Lead → Onboarded (acquisition) and <b>Business success</b> = Onboarded → Activated (activation) — always quoted together, never as a bare "conversion".</span></div>
         <div class="chart-wrap" style="height:280px;"><canvas id="chart-exec-funnel"></canvas></div>
       </section>
       <div class="grid2">
@@ -110,7 +110,7 @@
           <div class="kpis" id="exec-wow-row" style="margin:14px 16px;"></div>
         </section>
         <section class="card">
-          <div class="card-head"><h3>BD vs Non-BD, all-time</h3><span class="sub">Onboarded riders, BD vs Non-BD.</span></div>
+          <div class="card-head"><h3>BD vs Non-BD, all-time</h3><span class="sub">Onboarded attempts (attempt-grain), split BD vs Non-BD.</span></div>
           <div class="chart-wrap" style="height:280px;"><canvas id="chart-exec-bd"></canvas></div>
         </section>
       </div>
@@ -123,6 +123,7 @@
       <div class="note" id="reactivation-note"></div>
       <div class="note">
         <b>Attempt-week cohort (2026-08-21 rework).</b> Each row is a real lead <em>attempt</em>, not a contact — bucketed by the week that specific attempt was created. A contact who tries, fails, and retries weeks later shows up in both weeks; the attempt that actually converts gets the credit in <em>its own</em> week, not retroactively folded into the first one. Once a contact has ever Won (reached Activated), every later lead they generate is a <b>reactivation</b> and is excluded here entirely — see the note above and <code>docs/Funnel.md</code> for that as its own dimension. Because <code>reached_installed ⇒ reached_lead</code>, <code>reached_kyc_done ⇒ reached_installed</code>, etc. hold per attempt, each column is ≤ the one before it — nothing here can read over 100% or increase step to step.
+        <br><b>Grain:</b> every count on this tab is <em>attempt-grain</em> (flow — cohorts, conversion). Population/stock counts (how many <em>people</em>) are contact-grain and live on the Summary tab headline — never compare the two directly (27,583 attempts ≠ 26,438 people).
       </div>
       <section class="card">
         <div class="card-head"><h3>Lead Cohort Funnel — absolute</h3><span class="sub">Rows = week the attempt was created. Each column = how many of that same attempt-cohort have reached that stage by now.</span><button class="csv-btn" onclick="downloadTableCSV('tbl-funnel-wow','funnel_cohort_absolute.csv')">⬇ CSV</button></div>
@@ -141,7 +142,7 @@
     <div id="ftab-bd" class="ftab">
       <div class="grid2">
         <section class="card">
-          <div class="card-head"><h3>BD vs Non-BD — Onboarded riders</h3><span class="sub">BD = had a valid Bounce Daily booking before this lead's date (per-lead tag). Non-BD = no earlier valid booking — says nothing about lead source.</span></div>
+          <div class="card-head"><h3>BD vs Non-BD — Onboarded (attempt-grain)</h3><span class="sub">BD = had a valid Bounce Daily booking before this lead's date (per-lead tag). Non-BD = no earlier valid booking — says nothing about lead source.</span></div>
           <div class="chart-wrap" style="height:280px;"><canvas id="chart-bd"></canvas></div>
         </section>
         <section class="card">
@@ -158,7 +159,7 @@
 
     <div id="ftab-mix" class="ftab">
       <section class="card">
-        <div class="card-head"><h3>Weekly Rider Mix — New / Retained / Resurrected vs Churned</h3><span class="sub">Active = delivered ≥1 order that week.</span></div>
+        <div class="card-head"><h3>Weekly Rider Mix — New / Retained / Resurrected vs Churned</h3><span class="sub">Active = delivered ≥1 order that week. Counts are riders (people, contact-grain), not attempts.</span></div>
         <div class="chart-wrap" style="height:340px;"><canvas id="chart-mix"></canvas></div>
       </section>
       <div class="note" id="mix-insight"></div>
@@ -378,7 +379,10 @@ function renderExec(){
   });
 
   const bdPct = pct(bsAll.bd, bsAll.bd+bsAll.nonbd);
-  let headline = `${fmt(D.kpis.lead)} contacts have entered the funnel to date, ${fmt(D.kpis.activated)} are Activated (${pct(D.kpis.activated,D.kpis.lead)} of Lead). `;
+  let headline = `${fmt(D.kpis.lead)} contacts have entered the funnel to date, ${fmt(D.kpis.activated)} are Activated. `
+    + `Funnel conversion Lead→Onboarded: <b>${pct(D.kpis.onboarded,D.kpis.lead)}</b> · `
+    + `Business success Onboarded→Activated: <b>${pct(D.kpis.activated,D.kpis.onboarded)}</b> · `
+    + `end-to-end Lead→Activated: ${pct(D.kpis.activated,D.kpis.lead)}. `;
   if(lastWeek && priorWeek){
     const leadDir = lastWeek.lead_cnt>=priorWeek.lead_cnt ? 'up' : 'down';
     const leadPctTxt = priorWeek.lead_cnt ? Math.abs(100*(lastWeek.lead_cnt-priorWeek.lead_cnt)/priorWeek.lead_cnt).toFixed(0)+'%' : '—';
