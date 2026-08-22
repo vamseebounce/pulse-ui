@@ -80,7 +80,7 @@
 
     <div class="funnel-titlebar">
       <h1>Bounce Task — Rider Funnel &amp; Growth Dashboard</h1>
-      <p>Live query against tasks.v_bouncetask_funnel_* (Supabase) — refreshes automatically on load, no manual rebuild step.</p>
+      <p>Live query on every page load · cohort tables re-aggregate hourly at :35 · reload the page for the latest.</p>
       <div class="funnel-scopebar" id="scopebar">
         <label for="fromweek">Week range: from</label>
         <select id="fromweek"><option>Loading…</option></select>
@@ -99,6 +99,11 @@
     <div id="ftab-exec" class="ftab">
       <section class="card exec-headline-card">
         <div class="card-head" style="border:none;"><div id="exec-headline" style="font-size:15px;line-height:1.5;"></div></div>
+      </section>
+      <div class="kpis" id="exec-ns-row"></div>
+      <section class="card">
+        <div class="card-head"><h3>What's moving — auto-generated insights</h3><span class="sub">Computed on every load from the live data behind all tabs. "Last week" = most recently completed Mon–Sun.</span></div>
+        <div id="exec-insights" style="padding:4px 16px 14px;font-size:13.5px;line-height:1.9;"></div>
       </section>
       <section class="card">
         <div class="card-head"><h3>Rider funnel — all-time</h3><span class="sub">Every rider who has ever entered the funnel, by the furthest stage reached to date. Read as two owned halves: <b>Funnel conversion</b> = Lead → Onboarded (acquisition) and <b>Business success</b> = Onboarded → Activated (activation) — always quoted together, never as a bare "conversion".</span></div>
@@ -328,7 +333,122 @@ function execKpiCard(label, val, mainSub, deltaTxt, deltaCls, deltaSub){
   return d;
 }
 let execFunnelChart=null, execBdChart=null;
+// ---------- North-star strip + auto insights (Summary) ----------
+const STEP_DEFS = [['lead_cnt','installed_cnt','Lead→Installed'],['installed_cnt','kyc_initiated_cnt','Installed→KYC init'],['kyc_initiated_cnt','kyc_done_cnt','KYC init→KYC done'],['kyc_done_cnt','onboarded_cnt','KYC done→Onboarded'],['onboarded_cnt','activated_cnt','Onboarded→Activated']];
+function rate(n,d){ return d ? 100*n/d : null; }
+function fmtPp(x){ return (x>=0?'+':'') + x.toFixed(1) + 'pp'; }
+function fmtPc(x){ return (x>=0?'+':'') + x.toFixed(0) + '%'; }
+
+function renderNorthStar(){
+  const cw = D.funnel_cohort;
+  if(cw.length < 3) return;
+  const last = cw[cw.length-2], prior = cw[cw.length-3];  // last complete week vs the one before
+  const row = document.getElementById('exec-ns-row'); row.innerHTML='';
+  const card = (label, val, sub, delta, goodWhenUp=true)=>{
+    const d = document.createElement('div'); d.className='kpi';
+    let dHtml = '';
+    if(delta!=null){
+      const cls = (delta>=0)===goodWhenUp ? 'pos':'neg';
+      dHtml = `<div class="${cls}" style="font-size:12px;font-weight:700;">${typeof delta==='string'?delta:fmtPc(delta)}</div>`;
+    }
+    d.innerHTML = `<div class="kpi-label">${label}</div><div class="kpi-val">${val}</div>${dHtml}<div style="font-size:10.5px;color:var(--muted);">${sub}</div>`;
+    row.appendChild(d);
+  };
+  const wow = (a,b)=> b ? 100*(a-b)/b : null;
+  card('Activated — last wk', fmt(last.activated_cnt), 'vs wk before', wow(last.activated_cnt, prior.activated_cnt));
+  const lo1 = rate(last.onboarded_cnt,last.lead_cnt), lo0 = rate(prior.onboarded_cnt,prior.lead_cnt);
+  card('Lead→Onboarded — last wk', lo1==null?'—':lo1.toFixed(1)+'%', 'funnel conversion', lo1!=null&&lo0!=null?fmtPp(lo1-lo0):null);
+  const oa1 = rate(last.activated_cnt,last.onboarded_cnt), oa0 = rate(prior.activated_cnt,prior.onboarded_cnt);
+  card('Onboarded→Activated — last wk', oa1==null?'—':oa1.toFixed(1)+'%', 'business success', oa1!=null&&oa0!=null?fmtPp(oa1-oa0):null);
+  card('New lead attempts — last wk', fmt(last.lead_cnt), 'vs wk before', wow(last.lead_cnt, prior.lead_cnt));
+  const dw = D.dar_war.filter(r=>!r.is_partial);
+  if(dw.length>=2){
+    const w1=dw[dw.length-1], w0=dw[dw.length-2];
+    card('Active riders (WAR) — last wk', fmt(w1.war), 'delivered ≥1 order', wow(w1.war, w0.war));
+  }
+}
+
+function computeInsights(){
+  const out = [];  // {cls: 'pos'|'neg'|'', html}
+  const cw = D.funnel_cohort;
+  if(cw.length >= 6){
+    const last = cw[cw.length-2];
+    const hist = cw.slice(-6,-2); // 4 complete weeks before last
+    // 1. Bottleneck: biggest drop vs 4-wk average
+    let worst=null;
+    STEP_DEFS.forEach(([a,b,label])=>{
+      const now = rate(last[b], last[a]);
+      const avg = rate(hist.reduce((s,r)=>s+r[b],0), hist.reduce((s,r)=>s+r[a],0));
+      if(now!=null && avg!=null){
+        const diff = now-avg;
+        if(!worst || diff < worst.diff) worst = {label, now, avg, diff};
+      }
+    });
+    if(worst && worst.diff < -1){
+      out.push({cls:'neg', html:`<b>Biggest leak: ${worst.label}</b> fell to <b>${worst.now.toFixed(1)}%</b> last week (4-wk avg ${worst.avg.toFixed(1)}%, ${fmtPp(worst.diff)}). This stage is where the week's riders were lost.`});
+    } else if(worst){
+      out.push({cls:'pos', html:`<b>No stage is leaking abnormally</b> — every step conversion is within ~1pp of its 4-week average (weakest: ${worst.label} at ${worst.now.toFixed(1)}%).`});
+    }
+    // 2. Momentum
+    const prior = cw[cw.length-3];
+    const dl = rate(last.lead_cnt - prior.lead_cnt, prior.lead_cnt), don = rate(last.onboarded_cnt - prior.onboarded_cnt, prior.onboarded_cnt);
+    if(dl!=null && don!=null){
+      const cls = don>=0?'pos':'neg';
+      out.push({cls, html:`<b>Momentum:</b> lead attempts ${dl>=0?'up':'down'} ${Math.abs(dl).toFixed(0)}% WoW, onboarded ${don>=0?'up':'down'} ${Math.abs(don).toFixed(0)}% (${fmt(prior.onboarded_cnt)} → ${fmt(last.onboarded_cnt)}).`});
+    }
+  }
+  // 3. Segment gap (all-time, attempt grain)
+  const segAgg = {BD:{l:0,o:0}, 'Non-BD':{l:0,o:0}};
+  D.funnel_cohort_cross.forEach(r=>{ if(segAgg[r.seg]){ segAgg[r.seg].l+=r.lead_cnt; segAgg[r.seg].o+=r.onboarded_cnt; } });
+  const bdR = rate(segAgg.BD.o, segAgg.BD.l), nbR = rate(segAgg['Non-BD'].o, segAgg['Non-BD'].l);
+  if(bdR!=null && nbR!=null && bdR > nbR){
+    out.push({cls:'', html:`<b>Segment gap:</b> BD leads (prior Bounce Daily riders) convert Lead→Onboarded at <b>${bdR.toFixed(1)}%</b> vs <b>${nbR.toFixed(1)}%</b> for Non-BD — ${(bdR/nbR).toFixed(1)}x. Prior BD riders are the warmest acquisition pool.`});
+  }
+  // 4. City leaders (all-time attempt grain, known cities with volume)
+  const cities = D.city_attempts.filter(r=>r.city!=='Unknown' && r.lead_cnt>=100)
+    .map(r=>({city:r.city, n:r.lead_cnt, conv:rate(r.onboarded_cnt, r.lead_cnt)})).filter(r=>r.conv!=null);
+  if(cities.length>=2){
+    cities.sort((a,b)=>b.conv-a.conv);
+    const best=cities[0], worstC=cities[cities.length-1];
+    out.push({cls:'', html:`<b>City spread (all-time, ≥100 attempts):</b> ${best.city} converts Lead→Onboarded at <b>${best.conv.toFixed(0)}%</b>; ${worstC.city} at <b>${worstC.conv.toFixed(0)}%</b>. The gap is where playbook-copying pays.`});
+  }
+  // 5. Lead source
+  const srcAgg = {FR:{l:0,o:0}, Organic:{l:0,o:0}};
+  D.funnel_cohort_leadsrc.forEach(r=>{ if(srcAgg[r.leadsrc]){ srcAgg[r.leadsrc].l+=r.lead_cnt; srcAgg[r.leadsrc].o+=(r.onboarded_cnt||0); } });
+  const frR = rate(srcAgg.FR.o, srcAgg.FR.l), ogR = rate(srcAgg.Organic.o, srcAgg.Organic.l);
+  if(frR!=null && ogR!=null){
+    out.push({cls:'', html:`<b>Source quality:</b> FR-team leads reach Onboarded at <b>${frR.toFixed(1)}%</b> vs <b>${ogR.toFixed(1)}%</b> organic — field capture is doing the heavy lifting; organic needs product-side KYC nudges.`});
+  }
+  // 6. Retention pulse (W+1 of two latest measurable cohorts)
+  const tri = {};
+  D.cohort_triangle.forEach(r=>{ (tri[r.cohort_week]=tri[r.cohort_week]||{})[r.wk_offset]=r.active_cnt; });
+  const weeks = Object.keys(tri).filter(w=>tri[w][0]>0 && tri[w][1]!=null).sort();
+  if(weeks.length>=2){
+    const w1=weeks[weeks.length-1], w0=weeks[weeks.length-2];
+    const r1=rate(tri[w1][1],tri[w1][0]), r0=rate(tri[w0][1],tri[w0][0]);
+    const cls = r1>=r0?'pos':'neg';
+    out.push({cls, html:`<b>Retention pulse:</b> of riders active in wk ${w1}, <b>${r1.toFixed(0)}%</b> were active again the next week (prior cohort: ${r0.toFixed(0)}%). ${r1<r0?'Slipping — worth a re-engagement push.':'Holding.'}`});
+  }
+  // 7. Reactivation trend
+  const re = D.reactivation_by_week;
+  if(re.length>=2){
+    const l=re[re.length-1], p=re[re.length-2];
+    out.push({cls:'', html:`<b>Reactivations:</b> ${fmt(l.cnt??l.reactivation_cnt??0)} last data week (prior: ${fmt(p.cnt??p.reactivation_cnt??0)}) — returning riders are tracked outside the core funnel.`});
+  }
+  return out;
+}
+function renderInsights(){
+  const el = document.getElementById('exec-insights');
+  if(!el) return;
+  const ins = computeInsights();
+  el.innerHTML = ins.length
+    ? ins.map(i=>`<div style="margin:2px 0;"><span class="${i.cls}" style="font-weight:800;">●</span> ${i.html}</div>`).join('')
+    : '<span style="color:var(--muted)">Not enough complete weeks of data yet to generate insights.</span>';
+}
+
 function renderExec(){
+  renderNorthStar();
+  renderInsights();
   const stageVals = STAGES.map(s=>D.kpis[STAGE_FIELD[s].replace('_cnt','')] ?? 0);
   if(execFunnelChart) execFunnelChart.destroy();
   execFunnelChart = new Chart(document.getElementById('chart-exec-funnel'), {
